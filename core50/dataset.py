@@ -1,3 +1,5 @@
+import os
+
 class CORE50(object):
     """ CORe50 Data Loader calss
 

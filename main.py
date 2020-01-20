@@ -11,7 +11,7 @@ def main(args):
 
     # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
     # and assuming the core50 location in ~/core50/128x128/
-    dataset = CORE50(root='~/core50/128x128', scenario="nicv2_79")
+    dataset = CORE50('data/core50_128x128', scenario="nicv2_79")
 
     # Get the fixed test set
     test_x, test_y = dataset.get_test_set()
@@ -57,11 +57,12 @@ def main(args):
             print('training error: {:.2f} \t training accuracy {:2f}'
                   .format(loss, train_acc))
 
-        if i % args.eval_every == 0
+            if i % args.eval_every == 0:
             #TODO(not sure what we do yet here)
-            pass
+                pass
 
     #TODO(final evaluation)
+
 
 if __name__ == "__main__":
     import argparse
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     # General
     parser.add_argument('--mode', type=str, default='train',
         choices=['train', 'test'])
-    parser.add_argument('--folder', type=str, default='data',
+    parser.add_argument('--data_folder', type=str, default='data',
         help='Path to the folder the data is downloaded to.')
     parser.add_argument('-da', '--dataset', type=str,
         choices=['sinusoid', 'omniglot', 'miniimagenet'], default='omniglot',
