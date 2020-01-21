@@ -1,4 +1,9 @@
 import os
+import pickle as pkl
+import logging
+from hashlib import md5
+import numpy as np
+from PIL import Image
 
 class CORE50(object):
     """ CORe50 Data Loader calss
