@@ -4,55 +4,57 @@ import os
 import logging
 from PIL import Image
 import torch
+from pdb import set_trace
 
 from core50.dataset import CORE50
 
 
 def main(args):
 
-    # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
-    # and assuming the core50 location in ~/core50/128x128/
+    ## Create the dataset object for example with the "NIC_v2 - 79 benchmark"
+    ## and assuming the core50 location in ~/core50/128x128/
     dataset = CORE50('core50/data/', scenario="nicv2_79")
 
-    # Get the fixed test set
+    '''
+    ## Get the fixed test set
     test_x, test_y = dataset.get_test_set()
 
-    # CLASSIFIER
+    ## CLASSIFIER
     #TODO(load some models)
     if args.classifier == 'ResNet18':
         classifier = ResNet18(args.n_classes, nf=20, input_size=args.input_size)
     elif args.classifier == 'MLP':
         classifier = classifier(args).to(args.device)
+    '''
 
     if args.replay:
         from utils.buffer import Buffer
         buffer = Buffer(args)
 
-    opt = torch.optim.SGD(classifier.parameters(), lr=args.lr)
+    #opt = torch.optim.SGD(classifier.parameters(), lr=args.lr)
 
-    # loop over the training incremental batches
+    ## loop over the training incremental batches
     for i, train_batch in enumerate(dataset):
 
-        # WARNING train_batch is NOT a mini-batch, but one incremental batch!
-        # You can later train with SGD indexing train_x and train_y properly.
+        ## WARNING train_batch is NOT a mini-batch, but one incremental batch!
+        ## You can later train with SGD indexing train_x and train_y properly.
         train_x, train_y = train_batch
 
         print("----------- batch {0} -------------".format(i))
         print("train shape: {0}, test_shape: {0}"
               .format(train_x.shape, train_y.shape))
 
-        if args.replay:
+        '''
+        if args.replay and i>0:
             old_x, old_y = buffer.sample()
             train_x, train_y = torch.cat([train_x, old_x]), torch.cat([train_y, old_y])
 
         logits = model(train_x)
-
         loss = F.cross_entropy(logits, target)
         pred = logits.argmax(dim=1, keepdim=True)
 
-
         if args.replay:
-            buffer.add_reservoir(data, target, None, task)
+            buffer.add_reservoir(train_x, train_y, None, i)
 
         if i % args.print_every == 0:
             train_acc = pred.eq(target.view_as(pred)).sum().item() / pred.size(0)
@@ -63,6 +65,7 @@ def main(args):
             #TODO(not sure what we do yet here)
                 pass
 
+        '''
     #TODO(final evaluation)
 
 
@@ -108,7 +111,7 @@ if __name__ == "__main__":
     # Bonus args
 
     if args.dataset=='core50':
-        args.input_size = [3, 128, 128]
+        args.input_size = [128, 128, 3]
         args.n_classes = 100
     else:
         Exception('Not implemented yet!')

@@ -92,7 +92,6 @@ class Buffer(nn.Module):
             self.by[self.current_index: self.current_index + offset].data.copy_(y[:offset])
             self.bt[self.current_index: self.current_index + offset].fill_(t)
 
-
             if save_logits:
                 self.logits[self.current_index: self.current_index + offset].data.copy_(logits[:offset])
 
@@ -113,7 +112,6 @@ class Buffer(nn.Module):
 
         idx_new_data = valid_indices.nonzero().squeeze(-1)
         idx_buffer   = indices[idx_new_data]
-
 
         assert idx_buffer.max() < self.bx.size(0), pdb.set_trace()
         assert idx_buffer.max() < self.by.size(0), pdb.set_trace()
@@ -160,7 +158,6 @@ class Buffer(nn.Module):
         self.by = self.by[indices]
         self.bt = self.bt[indices]
 
-
     def delete_up_to(self, remove_after_this_idx):
         self.bx = self.bx[:remove_after_this_idx]
         self.by = self.by[:remove_after_this_idx]
@@ -194,10 +191,4 @@ class Buffer(nn.Module):
         indices = torch.randperm(self.current_index).to(self.args.device)
         return indices[:amt], indices[amt:]
 
-
-def get_cifar_buffer(args, hH=8, gen=None):
-    args.input_size = (hH, hH)
-    args.gen = True
-
-    return Buffer(args, gen=gen)
 
