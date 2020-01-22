@@ -40,22 +40,28 @@ def main(args):
         ## You can later train with SGD indexing train_x and train_y properly.
         train_x, train_y = train_batch
 
+        ## todo convert to pytorch
+        train_x, train_y = torch.tensor(train_x), torch.tensor(train_y)
+
         print("----------- batch {0} -------------".format(i))
         print("train shape: {0}, test_shape: {0}"
               .format(train_x.shape, train_y.shape))
 
-        '''
         if args.replay and i>0:
-            old_x, old_y = buffer.sample()
+            set_trace()
+            old_x, old_y = buffer.sample(args.replay_size)
             train_x, train_y = torch.cat([train_x, old_x]), torch.cat([train_y, old_y])
 
+        '''
         logits = model(train_x)
         loss = F.cross_entropy(logits, target)
         pred = logits.argmax(dim=1, keepdim=True)
+        '''
 
         if args.replay:
             buffer.add_reservoir(train_x, train_y, None, i)
 
+        '''
         if i % args.print_every == 0:
             train_acc = pred.eq(target.view_as(pred)).sum().item() / pred.size(0)
             print('training error: {:.2f} \t training accuracy {:2f}'
@@ -64,8 +70,8 @@ def main(args):
             if i % args.eval_every == 0:
             #TODO(not sure what we do yet here)
                 pass
-
         '''
+
     #TODO(final evaluation)
 
 
@@ -92,6 +98,8 @@ if __name__ == "__main__":
         help='enable replay')
     parser.add_argument('--mem_size', type=int, default=600,
         help='number of saved samples per class')
+    parser.add_argument('--replay_size', type=int, default=60,
+        help='number of replays per batch')
 
     # Optimization
     parser.add_argument('--batch_size', type=int, default=25,
