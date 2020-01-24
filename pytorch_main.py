@@ -18,7 +18,7 @@ def main(args):
     dataset = CORE50('core50/data/', scenario=args.scenario)
 
     ## Get the fixed test set
-    #test_x, test_y = dataset.get_test_set()
+    test_x, test_y = dataset.get_test_set()
 
     ## CLASSIFIER
     if args.classifier == 'ResNet18':
@@ -40,8 +40,8 @@ def main(args):
         current_x, current_y = current_batch
 
         ## convert to pytorch and resize
-        current_x = torch.tensor(current_x).view([-1, *args.input_size])
-        current_y = torch.tensor(current_y, dtype=torch.long)
+        current_x = torch.tensor(current_x).view([-1, *args.input_size]).to(args.device)
+        current_y = torch.tensor(current_y, dtype=torch.long).to(args.device)
 
         print("----------- batch {0} -------------".format(i))
         print("train shape: {0}".format(current_x.shape))
@@ -55,6 +55,7 @@ def main(args):
             input_x, input_y = current_x, current_y
 
         ## predict
+        ## you might want to loop over the batch
         logits = classifier(input_x[:args.batch_size])
         loss = F.cross_entropy(logits, input_y[:args.batch_size])
 
