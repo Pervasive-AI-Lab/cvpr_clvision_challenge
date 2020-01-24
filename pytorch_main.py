@@ -125,7 +125,6 @@ if __name__ == "__main__":
     # Bonus args
 
     if args.dataset=='core50':
-        args.input_size = [128, 128, 3]
         args.input_size = [3, 128, 128]
         args.n_classes = 50
     else:
