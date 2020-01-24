@@ -11,7 +11,7 @@ def main(args):
 
     # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
     # and assuming the core50 location in ~/core50/128x128/
-    dataset = CORE50('core50/data/', scenario="nicv2_79")
+    dataset = CORE50('core50/data/', scenario=args.scenario)
 
     # Get the fixed test set
     test_x, test_y = dataset.get_test_set()
@@ -37,22 +37,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('CVPR Continual Learning Challenge')
 
     # General
-    parser.add_argument('--mode', type=str, default='train',
-        choices=['train', 'test'])
+    parser.add_argument('--scenario', type=str, default="nicv2_79",
+        choices=['ni', 'nc', 'nic', 'nicv2_79','nicv2_196', 'nicv2_391')
     parser.add_argument('--data_folder', type=str, default='data',
         help='Path to the folder the data is downloaded to.')
     parser.add_argument('-da', '--dataset', type=str, default='core50',
         help='Name of the dataset (default: core50).')
 
 
-    # Optimization
-    parser.add_argument('--batch_size', type=int, default=25,
-        help='Number of tasks in a batch of tasks (default: 25).')
-
-    # Misc
-    parser.add_argument('--num-workers', type=int, default=1,
-        help='Number of workers to use for data-loading (default: 1).')
-    parser.add_argument('-v', '--verbose', action='store_true')
 
     args = parser.parse_args()
 
