@@ -2,9 +2,9 @@
 
 # Setup
 DIR="$( cd "$( dirname "$0" )" && pwd )"
-mkdir $DIR/../../data
-mkdir $DIR/../data/logs
-mkdir $DIR/../../data/snapshots
+mkdir -p $DIR/../../data
+mkdir -p $DIR/../data/logs
+mkdir -p $DIR/../../data/snapshots
 
 
 echo "Downloading Core50 (128x128 version)..."
