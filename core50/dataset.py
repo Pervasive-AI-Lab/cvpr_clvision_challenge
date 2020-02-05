@@ -1,3 +1,28 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+################################################################################
+# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyrights licensed under the CC BY 4.0 License.                             #
+# See the accompanying LICENSE file for terms.                                 #
+#                                                                              #
+# Date: 1-02-2019                                                              #
+# Author: Vincenzo Lomonaco                                                    #
+# E-mail: vincenzo.lomonaco@unibo.it                                           #
+# Website: vincenzolomonaco.com                                                #
+################################################################################
+
+"""
+
+...
+
+"""
+
+# Python 2-3 compatible
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import os
 import pickle as pkl
 import logging
@@ -5,10 +30,12 @@ from hashlib import md5
 import numpy as np
 from PIL import Image
 
+
 class CORE50(object):
     """ CORe50 Data Loader calss
 
     Args:
+        TODO: fix doc below
         root (string): Root directory of the dataset where ``core50_128x128``,
             ``paths.pkl``, ``LUP.pkl``, ``labels.pkl``, ``core50_imgs.npz``
             live. For example ``~/data/core50``.
@@ -33,23 +60,23 @@ class CORE50(object):
 
     nbatch = {
         'ni': 8,
-        'nc': 9,
-        'nic': 79,
-        'nicv2_79': 79,
-        'nicv2_196': 196,
-        'nicv2_391': 391
+        'multi-task-nc': 9,
+        'nic': 391
     }
 
+    old2new_names = {'ni': 'ni', 'multi-task-nc': 'nc', 'nic': 'nicv2_391'}
+
     def __init__(self, root='', preload=False, scenario='ni', cumul=False,
-                 run=0, start_batch=0):
+                 run=0, start_batch=0, task_sep=False):
         """" Initialize Object """
 
         self.root = os.path.expanduser(root)
         self.preload = preload
-        self.scenario = scenario
+        self.scenario = self.old2new_names[scenario]
         self.cumul = cumul
         self.run = run
         self.batch = start_batch
+        self.task_sep = task_sep
 
         if preload:
             print("Loading data...")
@@ -77,6 +104,25 @@ class CORE50(object):
         print("Loading labels...")
         with open(os.path.join(root, 'labels.pkl'), 'rb') as f:
             self.labels = pkl.load(f)
+
+        # to be changed
+        self.tasks_id = []
+        self.labs_for_task = []
+
+        if self.scenario == 'nc':
+            self.task_sep = True
+        else:
+            self.task_sep = False
+
+        print("preparing CL benchmark...")
+        for i in range(self.nbatch[scenario]):
+            if self.task_sep:
+                self.tasks_id.append(i)
+                self.labs_for_task.append(
+                    list(set(self.labels[self.scenario][run][i]))
+                )
+            else:
+                self.tasks_id.append(0)
 
     def __iter__(self):
         return self
@@ -126,14 +172,17 @@ class CORE50(object):
         # Update state for next iter
         self.batch += 1
 
-        return (train_x, train_y)
+        return train_x, train_y, self.tasks_id[self.batch-1]
 
-    def get_test_set(self):
-        """ Return the test set (the same for each inc. batch). """
+    next = __next__  # python2.x compatibility.
+
+    def get_full_valid_set(self):
+        """
+        Return the test set (the same for each inc. batch).
+        """
 
         scen = self.scenario
         run = self.run
-
         test_idx_list = self.LUP[scen][run][-1]
 
         if self.preload:
@@ -150,9 +199,21 @@ class CORE50(object):
         test_y = self.labels[scen][run][-1]
         test_y = np.asarray(test_y, dtype=np.float32)
 
-        return test_x, test_y
+        if self.scenario == 'multi-task-nc':
 
-    next = __next__  # python2.x compatibility.
+            result = [[] * self.nbatch[self.scenario]]
+            idx_x_task = {}
+            for idx, y in zip(test_idx_list, test_y):
+                for i in range(self.nbatch[self.scenario]):
+                    if y in self.labs_for_task[i]:
+                        pass
+                        #TODO: to complete..
+
+        else:
+
+            result = [[(test_x, test_y), self.tasks_id[self.batch - 1]]]
+
+        return result
 
     @staticmethod
     def get_batch_from_paths(paths, compress=False, snap_dir='',
@@ -213,3 +274,23 @@ class CORE50(object):
         assert (x is not None), 'Problems loading data. x is None!'
 
         return x
+
+
+if __name__ == "__main__":
+
+    # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
+    # and assuming the core50 location in ~/core50/128x128/
+    dataset = CORE50(root='/home/admin/Ior50N/128/', scenario="nic")
+
+    # Get the fixed test set
+    full_testset = dataset.get_full_valid_set()
+
+    # loop over the training incremental batches
+    for i, (x, y, t) in enumerate(dataset):
+
+        print("----------- batch {0} -------------".format(i))
+        print("x shape: {0}, y: {0}"
+              .format(x.shape, y.shape))
+
+        # use the data
+        pass

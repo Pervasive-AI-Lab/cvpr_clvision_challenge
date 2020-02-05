@@ -1,8 +1,29 @@
-import numpy as np
-import pickle as pkl
-import os
-import logging
-from PIL import Image
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+################################################################################
+# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyrights licensed under the CC BY 4.0 License.                             #
+# See the accompanying LICENSE file for terms.                                 #
+#                                                                              #
+# Date: 1-02-2019                                                              #
+# Author: Vincenzo Lomonaco                                                    #
+# E-mail: vincenzo.lomonaco@unibo.it                                           #
+# Website: vincenzolomonaco.com                                                #
+################################################################################
+
+"""
+
+Getting Started example for the CVPR 2020 CLVision Challenge. It will
+load the data and create the submission file for you in
+cvpr_clvision_challenge/submissions/
+
+"""
+
+# Python 2-3 compatible
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 from core50.dataset import CORE50
 
@@ -27,8 +48,7 @@ def main(args):
         print("train shape: {0}, test_shape: {0}"
               .format(train_x.shape, train_y.shape))
 
-
-    #TODO(final evaluation)
+    # TODO: (final evaluation)
 
 
 if __name__ == "__main__":
@@ -38,13 +58,11 @@ if __name__ == "__main__":
 
     # General
     parser.add_argument('--scenario', type=str, default="nicv2_79",
-        choices=['ni', 'nc', 'nic', 'nicv2_79','nicv2_196', 'nicv2_391')
+        choices=['ni', 'nc', 'nic', 'nicv2_79','nicv2_196', 'nicv2_391'])
     parser.add_argument('--data_folder', type=str, default='data',
         help='Path to the folder the data is downloaded to.')
     parser.add_argument('-da', '--dataset', type=str, default='core50',
         help='Name of the dataset (default: core50).')
-
-
 
     args = parser.parse_args()
 
