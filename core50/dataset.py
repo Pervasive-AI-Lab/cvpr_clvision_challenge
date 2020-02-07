@@ -14,7 +14,7 @@
 
 """
 
-...
+Basic data loader for the CVPR2020 CLVision Challenge.
 
 """
 
@@ -58,13 +58,12 @@ class CORE50(object):
             ``train=False`` this parameter will be ignored.
     """
 
+    new2old_names = {'ni': 'ni', 'multi-task-nc': 'nc', 'nic': 'nicv2_391'}
     nbatch = {
         'ni': 8,
-        'multi-task-nc': 9,
-        'nic': 391
+        'nc': 9,
+        'nicv2_391': 391
     }
-
-    old2new_names = {'ni': 'ni', 'multi-task-nc': 'nc', 'nic': 'nicv2_391'}
 
     def __init__(self, root='', preload=False, scenario='ni', cumul=False,
                  run=0, start_batch=0, task_sep=False):
@@ -72,7 +71,7 @@ class CORE50(object):
 
         self.root = os.path.expanduser(root)
         self.preload = preload
-        self.scenario = self.old2new_names[scenario]
+        self.scenario = self.new2old_names[scenario]
         self.cumul = cumul
         self.run = run
         self.batch = start_batch
@@ -115,7 +114,7 @@ class CORE50(object):
             self.task_sep = False
 
         print("preparing CL benchmark...")
-        for i in range(self.nbatch[scenario]):
+        for i in range(self.nbatch[self.scenario]):
             if self.task_sep:
                 self.tasks_id.append(i)
                 self.labs_for_task.append(
@@ -183,37 +182,81 @@ class CORE50(object):
 
         scen = self.scenario
         run = self.run
-        test_idx_list = self.LUP[scen][run][-1]
+        valid_idx_list = self.LUP[scen][run][-1]
+        valid_y = self.labels[scen][run][-1]
+        valid_paths = []
 
         if self.preload:
-            test_x = np.take(self.x, test_idx_list, axis=0).astype(np.float32)
+            valid_x = np.take(self.x, valid_idx_list, axis=0).astype(np.float32)
         else:
             # test paths
-            test_paths = []
-            for idx in test_idx_list:
-                test_paths.append(os.path.join(self.root, self.paths[idx]))
+            for idx in valid_idx_list:
+                valid_paths.append(os.path.join(self.root, self.paths[idx]))
 
             # test imgs
-            test_x = self.get_batch_from_paths(test_paths).astype(np.float32)
+            valid_x = self.get_batch_from_paths(valid_paths).astype(np.float32)
 
-        test_y = self.labels[scen][run][-1]
-        test_y = np.asarray(test_y, dtype=np.float32)
+        if self.scenario == 'nc':
 
-        if self.scenario == 'multi-task-nc':
+            valid_set = []
+            i_valid_paths = {i:[] for i in range(self.nbatch[self.scenario])}
+            idx_x_task = {i:[] for i in range(self.nbatch[self.scenario])}
+            y_x_task = {i:[] for i in range(self.nbatch[self.scenario])}
 
-            result = [[] * self.nbatch[self.scenario]]
-            idx_x_task = {}
-            for idx, y in zip(test_idx_list, test_y):
+            for idx, y, path in zip(valid_idx_list, valid_y, valid_paths):
                 for i in range(self.nbatch[self.scenario]):
                     if y in self.labs_for_task[i]:
-                        pass
-                        #TODO: to complete..
+                        idx_x_task[i].append(idx)
+                        y_x_task[i].append(y)
+                        i_valid_paths[i].append(path)
+
+            for i in range(self.nbatch[self.scenario]):
+                if self.preload:
+                    i_valid_x = np.take(self.x, valid_idx_list, axis=0)\
+                        .astype(np.float32)
+                else:
+                    i_valid_x = self.get_batch_from_paths(i_valid_paths[i])\
+                        .astype(np.float32)
+                i_valid_y = np.asarray(y_x_task[i], dtype=np.float32)
+                valid_set.append([(i_valid_x, i_valid_y), i])
+        else:
+            valid_y = np.asarray(valid_y, dtype=np.float32)
+            valid_set = [[(valid_x, valid_y), self.tasks_id[self.batch - 1]]]
+
+        return valid_set
+
+    def get_full_test_set(self):
+        """
+        Return the full test set (no labels)
+        """
+
+        filelist_path = self.root + "test_filelist.txt"
+        filelist_tlabeled_path = self.root + "test_filelist_tlabeled.txt"
+        test_img_dir = self.root + "core50_challenge_test"
+
+        if self.scenario == 'nc':
+            test_paths = {i:[] for i in range(self.nbatch[self.scenario])}
+            with open(filelist_tlabeled_path, "r") as rf:
+                for line in rf:
+                    path, task_label = line.split()
+                    test_paths[int(task_label.strip())].append(os.path.join(test_img_dir, path.strip()))
+
+            full_test = []
+            for i in range(self.nbatch[self.scenario]):
+                test_x = self.get_batch_from_paths(test_paths[i]).astype(np.float32)
+                full_test.append([test_x, i])
 
         else:
+            test_paths = []
+            with open(filelist_path, "r") as rf:
+                for line in rf:
+                    test_paths.append(os.path.join(test_img_dir, line.strip()))
+            test_x = self.get_batch_from_paths(test_paths).astype(np.float32)
 
-            result = [[(test_x, test_y), self.tasks_id[self.batch - 1]]]
+            full_test = [[test_x, 0]]
 
-        return result
+        return full_test
+
 
     @staticmethod
     def get_batch_from_paths(paths, compress=False, snap_dir='',
@@ -258,6 +301,7 @@ class CORE50(object):
             for i, path in enumerate(paths):
                 if verbose:
                     print("\r" + path + " processed: " + str(i + 1), end='')
+
                 x[i] = np.array(Image.open(path))
 
             if verbose:
@@ -278,12 +322,16 @@ class CORE50(object):
 
 if __name__ == "__main__":
 
-    # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
+    # Create the dataset object for example with the "nic"
     # and assuming the core50 location in ~/core50/128x128/
-    dataset = CORE50(root='/home/admin/Ior50N/128/', scenario="nic")
+    dataset = CORE50(root='data/', scenario="ni", preload=True)
 
+    # Get the fixed valid set
+    print("Recovering validation set...")
+    full_valdiset = dataset.get_full_valid_set()
     # Get the fixed test set
-    full_testset = dataset.get_full_valid_set()
+    print("Recovering test set...")
+    full_testset = dataset.get_full_test_set()
 
     # loop over the training incremental batches
     for i, (x, y, t) in enumerate(dataset):

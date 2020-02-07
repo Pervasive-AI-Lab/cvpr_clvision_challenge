@@ -7,6 +7,7 @@ mkdir -p $DIR/../../../submissions
 
 echo "Downloading Core50 dataset (train/validation set)..."
 wget --directory-prefix=$DIR'/../../data/' http://bias.csr.unibo.it/maltoni/download/core50/core50_128x128.zip
+wget --directory-prefix=$DIR'/../../data/' http://bias.csr.unibo.it/maltoni/download/core50/core50_imgs.npz
 
 echo "Downloading challenge test set..."
 wget --directory-prefix=$DIR'/../../data/' http://bias.csr.unibo.it/maltoni/download/core50/core50_challenge_test.zip
