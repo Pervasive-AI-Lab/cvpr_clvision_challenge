@@ -22,6 +22,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 import numpy as np
+import os
+import psutil
+import shutil
 
 
 def shuffle_in_unison(dataset, seed, in_place=False):
@@ -51,40 +54,6 @@ def shuffle_in_unison(dataset, seed, in_place=False):
 
     if not in_place:
         return new_dataset
-
-
-def softmax(x):
-    """
-    Compute softmax values for each sets of scores in x.
-
-        Args:
-            x (tensor): logits on which to apply the softmax function.
-        Returns:
-            tensor: softmax vector of batched softmax vectors.
-    """
-
-    f = x - np.max(x)
-    return np.exp(f) / np.sum(np.exp(f), axis=1, keepdims=True)
-    # If you do not care about stability use line above:
-    # return np.exp(x) / np.sum(np.exp(x), axis=1, keepdims=True)
-
-
-def count_lines(fpath):
-    """
-    Count line in file.
-
-        Args:
-            fpath (str): file path.
-        Returns:
-            int: number of lines in the file.
-    """
-
-    num_imgs = 0
-    with open(fpath, 'r') as f:
-        for line in f:
-            if '/' in line:
-                num_imgs += 1
-    return num_imgs
 
 
 def pad_data(dataset, mb_size):
@@ -122,127 +91,53 @@ def pad_data(dataset, mb_size):
     return dataset, it
 
 
-def compute_one_hot(train_y, class_count):
+def check_ext_mem(ext_mem_dir):
     """
-    Compute one-hot from labels.
+    Compute recursively the memory occupation on disk of ::ext_mem_dir::
+    directory.
 
         Args:
-            train_y (list): list of int labels.
-            class_count (int): total number of classes.
+            ext_mem_dir (str): path to the directory.
         Returns:
-            tensor: one-hot encoding of the input tensor.
-
+            ext_mem (float): Occupation size in Megabytes
     """
 
-    target_y = np.zeros((train_y.shape[0], class_count), dtype=np.float32)
-    target_y[np.arange(train_y.shape[0]), train_y.astype(np.int8)] = 1
+    ext_mem = sum(
+        os.path.getsize(
+            os.path.join(dirpath, filename)) for
+                dirpath, dirnames, filenames in os.walk(ext_mem_dir)
+                    for filename in filenames
+    ) / (1024 * 1024)
 
-    return target_y
+    return ext_mem
 
 
-def imagenet_batch_preproc(img_batch, rgb_swap=True, channel_first=True,
-                           avg_sub=True):
+def check_ram_usage():
     """
-    Pre-process batch of PIL img for Imagenet pre-trained models with caffe.
-    It may be need adjustements depending on the pre-trained model
-    since it is training dependent.
+    Compute the RAM usage of the current process.
+
+        Returns:
+            mem (float): Memory occupation in Megabytes
+    """
+
+    process = psutil.Process(os.getpid())
+    mem = process.memory_info().rss / (1024 * 1024)
+
+    return mem
+
+
+def create_code_snapshot(code_dir, dst_dir):
+    """
+    Copy the code that generated the exps as a backup.
 
         Args:
-            img_batch (tensor): batch of images.
-            rgb_swap (bool): if we want to swap the channels order.
-            channel_first (bool): if the channel dimension is before of after
-                                  the other dimensions (width and height).
-            avg_sub (bool): if we want to subtract the average pixel value
-                            for each channel.
-        Returns:
-            tensor: pre-processed batch.
+            code_dir (str): root dir of the project
+            dst_dir (str): where to put the code files
     """
 
-    # we assume img is a 3-channel image loaded with PIL
-    # so img has dim (w, h, c)
-
-    if rgb_swap:
-        # Swap RGB to BRG
-        img_batch = img_batch[:, :, :, ::-1]
-
-    if avg_sub:
-        # Subtract channel average
-        img_batch[:, :, :, 0] -= 104
-        img_batch[:, :, :, 1] -= 117
-        img_batch[:, :, :, 2] -= 123
-
-    if channel_first:
-        # Swap channel dimension to fit the caffe format (c, w, h)
-        img_batch = np.transpose(img_batch, (0, 3, 1, 2))
-
-    return img_batch
-
-
-def remove_some_labels(dataset, labels_set, scale_labels=False):
-    """
-    This method simply remove patterns with labels contained in
-    the labels_set.
-
-        Args:
-            dataset (list): training set composed of data and labels.
-            labels_set (list): set of labels to remove.
-            scale_labels (bool): if we want to change the actual label number
-                                 to start from zero or not.
-        Returns:
-            list: reduced set of data and labels.
-    """
-
-    data, labels = dataset
-    for label in labels_set:
-        # Using fun below copies data
-        mask = np.where(labels == label)[0]
-        labels = np.delete(labels, mask)
-        data = np.delete(data, mask, axis=0)
-
-    if scale_labels:
-        # scale labels if they do not start from zero
-        min = np.min(labels)
-        labels = (labels - min)
-
-    return [data, labels]
-
-
-def change_some_labels(dataset, labels_set, change_set):
-    """
-    This method simply change labels contained in
-    the labels_set.
-
-        Args:
-            dataset (list): training set composed of data and labels.
-            labels_set (list): labels to change.
-            change_set (list): corrisponding changed labels.
-        Returns:
-            list: changed set of data and labels.
-    """
-
-    data, labels = dataset
-    for label, change in zip(labels_set, change_set):
-        mask = np.where(labels == label)[0]
-        labels = np.put(labels, mask, change)
-
-    return data, labels
-
-
-def error_rate(predictions, labels):
-    """
-    Return the error rate based on dense predictions and sparse labels.
-        Args:
-            predictions (tensor): batched predictions.
-            labels (list): list on integers labels.
-        Returns:
-            float: error rate.
-    """
-
-    # return the accuracy
-    return 100.0 - (
-        100.0 *
-        np.sum(np.argmax(predictions, 1) == labels) /
-        predictions.shape[0])
-
+    for dirpath, dirnames, filenames in os.walk(code_dir):
+        for filename in filenames:
+            if ".py" in filename:
+                shutil.copy(os.path.join(dirpath, filename), dst_dir)
 
 

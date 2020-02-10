@@ -24,82 +24,11 @@ from __future__ import absolute_import
 import numpy as np
 import torch
 from torch.autograd import Variable
-from .common import pad_data, shuffle_in_unison
-
-
-def get_accuracy(model, criterion, batch_size, test_x, test_y, test_it,
-                 use_cuda=False, mask=None):
-    """
-    Test accuracy given a model and the test data.
-
-        Args:
-            model (nn.Module): the pytorch model to test.
-            criterion (func): loss function.
-            batch_size (int): mini-batch size.
-            test_x (tensor): test data.
-            test_y (tensor): test labels.
-            test_it (int): test iterations.
-            use_cuda (bool): if we want to use gpu or cpu.
-            mask (bool): if we want to maks out some classes from the results.
-        Returns:
-            ave_loss (float): average loss across the test set.
-            acc (float): average accuracy.
-            accs (list): average accuracy for class.
-    """
-
-    correct_cnt, ave_loss = 0, 0
-    model = maybe_cuda(model, use_cuda=use_cuda)
-
-    num_class = torch.max(test_y) + 1
-    hits_per_class = [0] * num_class
-    pattern_per_class = [0] * num_class
-
-    for i in range(test_it):
-        # indexing
-        start = i * batch_size
-        end = (i + 1) * batch_size
-
-        x = Variable(
-            maybe_cuda(test_x[start:end], use_cuda=use_cuda), volatile=True
-        )
-        y = Variable(
-            maybe_cuda(test_y[start:end], use_cuda=use_cuda), volatile=True
-        )
-
-        logits = model(x)
-
-        if mask is not None:
-            # we put an high negative number so that after softmax that prob
-            # will be zero and not contribute to the loss
-            idx = (torch.FloatTensor(mask).cuda() == 0).nonzero()
-            idx = idx.view(idx.size(0))
-            logits[:, idx] = -10e10
-
-        loss = criterion(logits, y)
-        _, pred_label = torch.max(logits.data, 1)
-        correct_cnt += (pred_label == y.data).sum()
-        ave_loss += loss.data[0]
-
-        for label in y.data:
-            pattern_per_class[int(label)] += 1
-
-        for i, pred in enumerate(pred_label):
-            if pred == y.data[i]:
-                hits_per_class[int(pred)] += 1
-
-    accs = np.asarray(hits_per_class) / \
-           np.asarray(pattern_per_class).astype(float)
-
-    acc = correct_cnt * 1.0 / test_y.size(0)
-
-    ave_loss /= test_y.size(0)
-
-    return ave_loss, acc, accs
+from .common import pad_data, shuffle_in_unison, check_ext_mem, check_ram_usage
 
 
 def train_net(optimizer, model, criterion, mb_size, x, y, t,
-              train_ep, preproc=None, use_cuda=True, mask=None,
-              record_stats=False):
+              train_ep, preproc=None, use_cuda=True, mask=None):
     """
     Train a Pytorch model from pre-loaded tensors.
 
@@ -115,7 +44,6 @@ def train_net(optimizer, model, criterion, mb_size, x, y, t,
             preproc (func): test iterations.
             use_cuda (bool): if we want to use gpu or cpu.
             mask (bool): if we want to maks out some classes from the results.
-            record_stats (bool): if we want to save collect sparsity stats.
         Returns:
             ave_loss (float): average loss across the train set.
             acc (float): average accuracy over training.
@@ -124,7 +52,7 @@ def train_net(optimizer, model, criterion, mb_size, x, y, t,
 
     cur_ep = 0
     cur_train_t = t
-    stats = {'perc_on_avg': [], 'perc_on_std': [], 'on_idxs': []}
+    stats = {"ram": [], "disk": []}
 
     if preproc:
         x = preproc(x)
@@ -145,6 +73,9 @@ def train_net(optimizer, model, criterion, mb_size, x, y, t,
     train_y = torch.from_numpy(train_y).type(torch.LongTensor)
 
     for ep in range(train_ep):
+
+        stats['disk'].append(check_ext_mem("cl_ext_mem"))
+        stats['ram'].append(check_ram_usage())
 
         model.active_perc_list = []
         model.train()
@@ -183,18 +114,6 @@ def train_net(optimizer, model, criterion, mb_size, x, y, t,
                 )
 
         cur_ep += 1
-
-        if record_stats:
-            perc_on_avg = np.mean(model.active_perc_list)
-            perc_on_std = np.std(model.active_perc_list)
-
-            print(
-                "Average active units: {}%, std {}%: "
-                .format(perc_on_avg, perc_on_std)
-            )
-
-            stats['perc_on_avg'].append(perc_on_avg)
-            stats['perc_on_std'].append(perc_on_std)
 
     return ave_loss, acc, stats
 
@@ -250,7 +169,7 @@ def maybe_cuda(what, use_cuda=True, **kw):
 
 def test_multitask(
         model, test_set, mb_size, preproc=None, use_cuda=True, multi_heads=[],
-        mask=False):
+        mask=False, verbose=False):
     """
     Test a model considering that the test set is composed of multiple tests
     one for each task.
@@ -272,14 +191,10 @@ def test_multitask(
     model.eval()
 
     acc_x_task = []
-    stats = {'accs': []}
+    stats = {'accs': [], 'acc': []}
+    preds = []
 
     for (x, y), t in test_set:
-
-        # reduce test set 20 substampling
-        # idx = range(0, y.shape[0], 20)
-        # x = np.take(x, idx, axis=0)
-        # y = np.take(y, idx, axis=0)
 
         if preproc:
             x = preproc(x)
@@ -326,20 +241,27 @@ def test_multitask(
 
                 _, pred_label = torch.max(logits, 1)
                 correct_cnt += (pred_label == y_mb).sum()
+                preds += list(pred_label.data.cpu().numpy())
 
+                # print(pred_label)
+                # print(y_mb)
             acc = correct_cnt.item() / test_y.shape[0]
 
-        print('TEST Acc. Task {}==>>> acc: {:.3f}'.format(t, acc))
+        if verbose:
+            print('TEST Acc. Task {}==>>> acc: {:.3f}'.format(t, acc))
         acc_x_task.append(acc)
         stats['accs'].append(acc)
 
-    print("------------------------------------------")
-    print("Avg. acc:", np.mean(acc_x_task))
-    print("------------------------------------------")
+    stats['acc'].append(np.mean(acc_x_task))
+
+    if verbose:
+        print("------------------------------------------")
+        print("Avg. acc:", stats['acc'])
+        print("------------------------------------------")
 
     # reset the head for the next batch
     if multi_heads:
         print("classifier reset...")
         model.reset_classifier()
 
-    return stats
+    return stats, preds

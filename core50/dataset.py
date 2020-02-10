@@ -253,7 +253,7 @@ class CORE50(object):
                     test_paths.append(os.path.join(test_img_dir, line.strip()))
             test_x = self.get_batch_from_paths(test_paths).astype(np.float32)
 
-            full_test = [[test_x, 0]]
+            full_test = [[(test_x, np.asarray([-1] * len(test_paths))), 0]]
 
         return full_test
 
