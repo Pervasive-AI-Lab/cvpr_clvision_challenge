@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyright (c) 2019. Vincenzo Lomonaco, Massimo Caccia, Pau Rodriguez,        #
+# Lorenzo Pellegrini. All rights reserved.                                     #
 # Copyrights licensed under the CC BY 4.0 License.                             #
 # See the accompanying LICENSE file for terms.                                 #
 #                                                                              #
@@ -175,7 +176,7 @@ class CORE50(object):
 
     next = __next__  # python2.x compatibility.
 
-    def get_full_valid_set(self):
+    def get_full_valid_set(self, reduced=True):
         """
         Return the test set (the same for each inc. batch).
         """
@@ -184,17 +185,6 @@ class CORE50(object):
         run = self.run
         valid_idx_list = self.LUP[scen][run][-1]
         valid_y = self.labels[scen][run][-1]
-        valid_paths = []
-
-        if self.preload:
-            valid_x = np.take(self.x, valid_idx_list, axis=0).astype(np.float32)
-        else:
-            # test paths
-            for idx in valid_idx_list:
-                valid_paths.append(os.path.join(self.root, self.paths[idx]))
-
-            # test imgs
-            valid_x = self.get_batch_from_paths(valid_paths).astype(np.float32)
 
         if self.scenario == 'nc':
 
@@ -203,24 +193,52 @@ class CORE50(object):
             idx_x_task = {i:[] for i in range(self.nbatch[self.scenario])}
             y_x_task = {i:[] for i in range(self.nbatch[self.scenario])}
 
-            for idx, y, path in zip(valid_idx_list, valid_y, valid_paths):
+            for idx, y in zip(valid_idx_list, valid_y):
                 for i in range(self.nbatch[self.scenario]):
                     if y in self.labs_for_task[i]:
                         idx_x_task[i].append(idx)
                         y_x_task[i].append(y)
-                        i_valid_paths[i].append(path)
+                        i_valid_paths[i].append(os.path.join(self.root, self.paths[idx]))
 
             for i in range(self.nbatch[self.scenario]):
                 if self.preload:
-                    i_valid_x = np.take(self.x, valid_idx_list, axis=0)\
+                    i_valid_x = np.take(self.x, idx_x_task[i], axis=0)\
                         .astype(np.float32)
+                    # print(i, len(idx_x_task[i]))
                 else:
                     i_valid_x = self.get_batch_from_paths(i_valid_paths[i])\
                         .astype(np.float32)
                 i_valid_y = np.asarray(y_x_task[i], dtype=np.float32)
+
+                if reduced:
+                    # reduce valid set by 20
+                    idx = range(0, i_valid_y.shape[0], 20)
+                    i_valid_x = np.take(i_valid_x, idx, axis=0)
+                    i_valid_y = np.take(i_valid_y, idx, axis=0)
+
                 valid_set.append([(i_valid_x, i_valid_y), i])
+
+
         else:
+            if self.preload:
+                valid_x = np.take(self.x, valid_idx_list, axis=0).astype(np.float32)
+            else:
+                # test paths
+                valid_paths = []
+                for idx in valid_idx_list:
+                    valid_paths.append(os.path.join(self.root, self.paths[idx]))
+
+                # test imgs
+                valid_x = self.get_batch_from_paths(valid_paths).astype(np.float32)
+
             valid_y = np.asarray(valid_y, dtype=np.float32)
+
+            if reduced:
+                # reduce valid set by 20
+                idx = range(0, valid_y.shape[0], 20)
+                valid_x = np.take(valid_x, idx, axis=0)
+                valid_y = np.take(valid_y, idx, axis=0)
+
             valid_set = [[(valid_x, valid_y), self.tasks_id[self.batch - 1]]]
 
         return valid_set
@@ -244,7 +262,7 @@ class CORE50(object):
             full_test = []
             for i in range(self.nbatch[self.scenario]):
                 test_x = self.get_batch_from_paths(test_paths[i]).astype(np.float32)
-                full_test.append([test_x, i])
+                full_test.append([(test_x, np.asarray([-1] * len(test_paths[i]))), i])
 
         else:
             test_paths = []
@@ -324,7 +342,7 @@ if __name__ == "__main__":
 
     # Create the dataset object for example with the "nic"
     # and assuming the core50 location in ~/core50/128x128/
-    dataset = CORE50(root='data/', scenario="ni", preload=True)
+    dataset = CORE50(root='data/', scenario="multi-task-nc", preload=True)
 
     # Get the fixed valid set
     print("Recovering validation set...")

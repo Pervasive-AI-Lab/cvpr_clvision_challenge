@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyright (c) 2019. Vincenzo Lomonaco, Massimo Caccia, Pau Rodriguez,        #
+# Lorenzo Pellegrini. All rights reserved.                                     #
 # Copyrights licensed under the CC BY 4.0 License.                             #
 # See the accompanying LICENSE file for terms.                                 #
 #                                                                              #
@@ -168,8 +169,7 @@ def maybe_cuda(what, use_cuda=True, **kw):
 
 
 def test_multitask(
-        model, test_set, mb_size, preproc=None, use_cuda=True, multi_heads=[],
-        mask=False, verbose=False):
+        model, test_set, mb_size, preproc=None, use_cuda=True, multi_heads=[], verbose=True):
     """
     Test a model considering that the test set is composed of multiple tests
     one for each task.
@@ -180,7 +180,6 @@ def test_multitask(
             mb_size (int): mini-batch size.
             preproc (func): image preprocess function.
             use_cuda (bool): if we want to use gpu or cpu.
-            mask (bool): if we want to maks out some classes from the results.
             multi_heads (list): ordered list of "heads" to be used for each
                                 task.
         Returns:
@@ -199,29 +198,24 @@ def test_multitask(
         if preproc:
             x = preproc(x)
 
-        (test_x, test_y), it_x_ep = pad_data(
-            [x, y], mb_size
-        )
-
         if multi_heads != [] and len(multi_heads) > t:
             # we can use the stored head
-            print("Using head: ", t)
-            model.classifier = multi_heads[t]
+            if verbose:
+                print("Using head: ", t)
+            model.fc = multi_heads[t]
 
         model = maybe_cuda(model, use_cuda=use_cuda)
         acc = None
 
-        test_x = torch.from_numpy(test_x).type(torch.FloatTensor)
-        test_y = torch.from_numpy(test_y).type(torch.LongTensor)
+        test_x = torch.from_numpy(x).type(torch.FloatTensor)
+        test_y = torch.from_numpy(y).type(torch.LongTensor)
 
         correct_cnt, ave_loss = 0, 0
 
         with torch.no_grad():
 
-            minclass = np.min(y)
-            maxclass = np.max(y)
-
-            for it in range(it_x_ep):
+            iters = test_y.size(0) // mb_size + 1
+            for it in range(iters):
 
                 start = it * mb_size
                 end = (it + 1) * mb_size
@@ -229,15 +223,6 @@ def test_multitask(
                 x_mb = maybe_cuda(test_x[start:end], use_cuda=use_cuda)
                 y_mb = maybe_cuda(test_y[start:end], use_cuda=use_cuda)
                 logits = model(x_mb)
-
-                if mask:
-                    totclass = logits.size(1)
-                    mymask = np.asarray([0] * totclass)
-                    mymask[minclass:maxclass+1] = 1
-                    mymask = maybe_cuda(torch.from_numpy(mymask),
-                                        use_cuda=use_cuda)
-                    # print(mymask)
-                    logits = mymask * logits
 
                 _, pred_label = torch.max(logits, 1)
                 correct_cnt += (pred_label == y_mb).sum()
@@ -261,7 +246,8 @@ def test_multitask(
 
     # reset the head for the next batch
     if multi_heads:
-        print("classifier reset...")
-        model.reset_classifier()
+        if verbose:
+            print("classifier reset...")
+        classifier = torch.nn.Linear(512, 50)
 
     return stats, preds

@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyright (c) 2019. Vincenzo Lomonaco, Massimo Caccia, Pau Rodriguez,        #
+# Lorenzo Pellegrini. All rights reserved.                                     #
 # Copyrights licensed under the CC BY 4.0 License.                             #
 # See the accompanying LICENSE file for terms.                                 #
 #                                                                              #
@@ -28,6 +29,7 @@ from __future__ import absolute_import
 import argparse
 import os
 import time
+import copy
 from core50.dataset import CORE50
 import torch
 import numpy as np
@@ -65,6 +67,7 @@ def main(args):
     valid_acc = []
     ext_mem_sz = []
     ram_usage = []
+    heads = []
 
     # loop over the training incremental batches
     for i, train_batch in enumerate(dataset):
@@ -79,12 +82,14 @@ def main(args):
             opt, classifier, criterion, args.batch_size, train_x, train_y, t,
             args.epochs, preproc=preprocess_imgs
         )
+        if args.scenario == "multi-task-nc":
+            heads.append(copy.deepcopy(classifier.fc))
 
         ext_mem_sz += stats['disk']
         ram_usage += stats['ram']
 
         stats, _ = test_multitask(
-            classifier, full_valdidset, args.batch_size, preproc=preprocess_imgs
+            classifier, full_valdidset, args.batch_size, preproc=preprocess_imgs, multi_heads=heads
         )
 
         valid_acc += stats['acc']
@@ -100,7 +105,7 @@ def main(args):
         os.makedirs(sub_dir)
 
     # copy code
-    create_code_snapshot(".", sub_dir)
+    create_code_snapshot(".", sub_dir + "/code_snapshot")
 
     # generating metadata.txt: with all the data used for the CLScore
     elapsed = (time.time() - start) / 60
@@ -130,7 +135,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser('CVPR Continual Learning Challenge')
 
     # General
-    parser.add_argument('--scenario', type=str, default="ni",
+    parser.add_argument('--scenario', type=str, default="multi-task-nc",
                         choices=['ni', 'multi-task-nc', 'nic'])
     parser.add_argument('--preload_data', type=bool, default=True,
                         help='preload data into RAM')
@@ -166,7 +171,7 @@ if __name__ == "__main__":
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('--print_every', type=int, default=1)
     parser.add_argument('--eval_every', type=int, default=100)
-    parser.add_argument('--sub_dir', type=str, default="ni",
+    parser.add_argument('--sub_dir', type=str, default="multi-task-nc",
                         help='directory of the submission file for this exp.')
 
     args = parser.parse_args()

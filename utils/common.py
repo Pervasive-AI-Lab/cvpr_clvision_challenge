@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-# Copyright (c) 2019. Vincenzo Lomonaco. All rights reserved.                  #
+# Copyright (c) 2019. Vincenzo Lomonaco, Massimo Caccia, Pau Rodriguez,        #
+# Lorenzo Pellegrini. All rights reserved.                                     #
 # Copyrights licensed under the CC BY 4.0 License.                             #
 # See the accompanying LICENSE file for terms.                                 #
 #                                                                              #
@@ -135,9 +136,15 @@ def create_code_snapshot(code_dir, dst_dir):
             dst_dir (str): where to put the code files
     """
 
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+
     for dirpath, dirnames, filenames in os.walk(code_dir):
         for filename in filenames:
-            if ".py" in filename:
-                shutil.copy(os.path.join(dirpath, filename), dst_dir)
+            if ".py" in filename and ".pyc" not in filename:
+                try:
+                    shutil.copy(os.path.join(dirpath, filename), dst_dir)
+                except shutil.SameFileError:
+                    pass
 
 
