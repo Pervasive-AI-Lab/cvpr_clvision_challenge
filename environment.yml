@@ -1,8 +1,9 @@
 name: clvision-challenge
 channels:
-- soumith
+- pytorch
 dependencies:
 - python=3
 - numpy
-- soumith::pytorch
-- soumith::torchvision
+- psutil
+- pytorch::pytorch
+- pytorch::torchvision
