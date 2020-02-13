@@ -5,7 +5,7 @@ challenge con *Continual Learning for Computer Vision*. Here we provide:
 
 - Two script to setup the environment and generate of the zip submission file.
 - A complete working example to: 1) load the data and setting up the continual
-learning protocols; 2) collect all the metadata during training 3) evaluate the trained model on the valid and test sets 
+learning protocols; 2) collect all the metadata during training 3) evaluate the trained model on the valid and test sets. 
 - Starting Dockerfile to simplify the final submission at the end of the first phase.
 
 You just have to write your own Continual Learning strategy (even with just a couple lines of code!) and you
@@ -70,8 +70,27 @@ You can now customize the code in the main batches/tasks loop:
         print("----------- batch {0} -------------".format(i))
 
         # TODO: CL magic here
-        # Remember to add all the metadata requested and as shown in the sample script.
+        # Remember to add all the metadata requested for the metrics as shown in the sample script.
 ```
+
+### Troubleshooting & Tips
+
+**Benchmark download is very slow**: We are aware of the issue in some countries, we are working to include a few more
+mirrors from which to download the data. Please contact us if you encounter other issues. 
+One suggestion is to comment one of the two lines of code in the `fetch_data_and_setup.sh` script:
+
+```bash
+wget --directory-prefix=$DIR'/core50/data/' http://bias.csr.unibo.it/maltoni/download/core50/core50_128x128.zip
+wget --directory-prefix=$DIR'/core50/data/' http://bias.csr.unibo.it/maltoni/download/core50/core50_imgs.npz
+```
+if you expect to preload all the training set into your RAM with the `preload=True` flag (of the CORe50 data
+loader object), then you can comment the first line. On the contrary, if you want to check the actual images and 
+load them on-the-fly from the disk, you can comment the second line.
+
+### Dockerfile for Final Submission
+
+...To be released soon!
+
 ### Authors and Contacts
 
 This repository has been created by:
@@ -81,8 +100,9 @@ This repository has been created by:
 - [Pau Rodriguez]()
 - [Lorenzo Pellegrino]()
 
-In case of any question or doubt you can contact us via email at vincenzo.lomonaco AT unibo, or join the ContinualAI slack
-workspace at the #clvision-workshop channel to ask your questions and be always updated about the progress of the
+In case of any question or doubt you can contact us via email at *vincenzo.lomonaco@unibo*, or join the [ContinualAI slack
+workspace](https://join.slack.com/t/continualai/shared_invite/enQtNjQxNDYwMzkxNzk0LTBhYjg2MjM0YTM2OWRkNDYzOGE0ZTIzNDQ0ZGMzNDE3ZGUxNTZmNmM1YzJiYzgwMTkyZDQxYTlkMTI3NzZkNjU) 
+at the `#clvision-workshop` channel to ask your questions and be always updated about the progress of the
 competition.
 
 
