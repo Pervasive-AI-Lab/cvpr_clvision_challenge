@@ -1,7 +1,7 @@
 # CVPR 2020 CLVision Challenge
 
-This is the official starting repository for the CVPR 2020 CLVision 
-challenge con *Continual Learning for Computer Vision*. Here we provide:
+This is the official starting repository for the **CVPR 2020 CLVision 
+challenge**. Here we provide:
 
 - Two script to setup the environment and generate of the zip submission file.
 - A complete working example to: 1) load the data and setting up the continual
@@ -11,10 +11,24 @@ learning protocols; 2) collect all the metadata during training 3) evaluate the 
 You just have to write your own Continual Learning strategy (even with just a couple lines of code!) and you
 are ready to partecipate.
 
-### Challenge Description and Rules
+### Challenge Description, Rules and Prizes
 
 You can find the challenge description and main rules in the official 
 [workshop page](https://sites.google.com/view/clvision2020/challenge?authuser=0).
+
+We *do not expect each participant to necessarily submit a solution that is working 
+for all of them*. Each participant may decide to run for one track or more, 
+but *he will compete automatically in all the 4 separate rankings* 
+(ni, multi-task-nc, nic, all of them).
+
+Please note that the collection of the metadata to compute the *CL_scoree*
+is mandatory and should respect the frequency requested for each metric:
+
+- **Final Accuracy on the Test Set**: should be computed only at the end of the training (%).
+- **Average Accuracy Over Time on the Validation Set**: should be computed at every batch/task (%).
+- **Total Training/Test time**: total running time from start to end of the main function (in Minutes).
+- **RAM Usage**: should be computed at every epoch (in MB).
+- **Disk Usage**: should be computed at every epoch (in MB).
 
 ### Project Structure
 This repository is structured as follows:
