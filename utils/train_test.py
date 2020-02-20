@@ -248,6 +248,6 @@ def test_multitask(
     if multi_heads:
         if verbose:
             print("classifier reset...")
-        classifier = torch.nn.Linear(512, 50)
+        model.fc = torch.nn.Linear(512, 50)
 
     return stats, preds
