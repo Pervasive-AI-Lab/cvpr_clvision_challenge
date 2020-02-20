@@ -65,7 +65,7 @@ Make your first submission:
 sh create_submission.sh
 ```
 
-Your `submission.zip` file is ready to be submitted on the [Codalab platform](https://competitions.codalab.org/competitions/23161)! 
+Your `submission.zip` file is ready to be submitted on the [Codalab platform](https://competitions.codalab.org/competitions/23317)! 
 
 ### Create your own CL algorithm
 
