@@ -65,11 +65,11 @@ Make your first submission:
 sh create_submission.sh
 ```
 
-Your `submission.zip` file is ready to be submitted on the [Codalab platform](https://competitions.codalab.org/competitions/23161?secret_key=3c99bed5-395d-4ef8-a46d-3a9c4f73d6c8)! 
+Your `submission.zip` file is ready to be submitted on the [Codalab platform](https://competitions.codalab.org/competitions/23161)! 
 
 ### Create your own CL algorithm
 
-You can start by taking a look at the `naive_baseline.py` scipt. It has been already prepared for you to load the
+You can start by taking a look at the `naive_baseline.py` script. It has been already prepared for you to load the
 data based on the challenge category and create the submission file. 
 
 The simplest usage is as follow:
