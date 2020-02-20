@@ -15,9 +15,8 @@
 
 """
 
-Getting Started example for the CVPR 2020 CLVision Challenge. It will
-load the data and create the submission file for you in
-cvpr_clvision_challenge/submissions/
+Getting Started example for the CVPR 2020 CLVision Challenge. It will load the data and create the submission file
+for you in the cvpr_clvision_challenge/submissions directory.
 
 """
 
@@ -46,12 +45,12 @@ def main(args):
     # do not remove this line
     start = time.time()
 
-    # Create the dataset object for example with the "NIC_v2 - 79 benchmark"
-    # and assuming the core50 location in ~/core50/128x128/
+    # Create the dataset object for example with the "ni, multi-task-nc, or nic tracks"
+    # and assuming the core50 location in ./core50/data/
     dataset = CORE50(root='core50/data/', scenario=args.scenario,
                      preload=args.preload_data)
 
-    # Get the fixed test set
+    # Get the validation set
     print("Recovering validation set...")
     full_valdidset = dataset.get_full_valid_set()
 
@@ -69,7 +68,7 @@ def main(args):
     ram_usage = []
     heads = []
 
-    # loop over the training incremental batches
+    # loop over the training incremental batches (x, y, t)
     for i, train_batch in enumerate(dataset):
         train_x, train_y, t = train_batch
 
@@ -97,8 +96,7 @@ def main(args):
         print("Avg. acc: {}".format(stats['acc']))
         print("------------------------------------------")
 
-    # DO NOT remove lines below: used for submission
-
+    # Generate submission.zip
     # directory with the code snapshot to generate the results
     sub_dir = 'submissions/' + args.sub_dir
     if not os.path.exists(sub_dir):
@@ -143,18 +141,6 @@ if __name__ == "__main__":
     # Model
     parser.add_argument('-cls', '--classifier', type=str, default='ResNet18',
                         choices=['ResNet18'])
-    parser.add_argument('-hs', '--hidden_size', type=int, default=64,
-                        help='Number of channels in each convolution layer of '
-                             'the VGG network or hidden size of an MLP. If '
-                             'None, kept to default')
-
-    # CL
-    parser.add_argument('--replay', type=bool, default=True,
-                        help='enable replay')
-    parser.add_argument('--mem_size', type=int, default=600,
-                        help='number of saved samples per class')
-    parser.add_argument('--replay_size', type=int, default=60,
-                        help='number of replays per batch')
 
     # Optimization
     parser.add_argument('--lr', type=float, default=0.01,
@@ -165,12 +151,6 @@ if __name__ == "__main__":
                         help='number of epochs')
 
     # Misc
-    parser.add_argument('--num-workers', type=int, default=1,
-                        help='Number of workers to use for data-loading '
-                             '(default: 1).')
-    parser.add_argument('-v', '--verbose', action='store_true')
-    parser.add_argument('--print_every', type=int, default=1)
-    parser.add_argument('--eval_every', type=int, default=100)
     parser.add_argument('--sub_dir', type=str, default="multi-task-nc",
                         help='directory of the submission file for this exp.')
 
@@ -180,8 +160,5 @@ if __name__ == "__main__":
 
     args.cuda = torch.cuda.is_available()
     args.device = 'cuda:0' if args.cuda else 'cpu'
-
-    # convert from per class to total memory
-    args.mem_size = args.mem_size * args.n_classes
 
     main(args)

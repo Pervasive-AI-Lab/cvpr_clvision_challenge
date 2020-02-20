@@ -13,7 +13,7 @@ are ready to partecipate.
 
 ### Challenge Description, Rules and Prizes
 
-You can find the challenge description and main rules in the official 
+You can find the challenge description, prizes and **main rules** in the official 
 [workshop page](https://sites.google.com/view/clvision2020/challenge?authuser=0).
 
 We *do not expect each participant to necessarily submit a solution that is working 
@@ -21,14 +21,14 @@ for all of them*. Each participant may decide to run for one track or more,
 but *he will compete automatically in all the 4 separate rankings* 
 (ni, multi-task-nc, nic, all of them).
 
-Please note that the collection of the metadata to compute the *CL_scoree*
+Please note that the collection of the metadata to compute the *CL_score*
 is mandatory and should respect the frequency requested for each metric:
 
 - **Final Accuracy on the Test Set**: should be computed only at the end of the training (%).
 - **Average Accuracy Over Time on the Validation Set**: should be computed at every batch/task (%).
 - **Total Training/Test time**: total running time from start to end of the main function (in Minutes).
-- **RAM Usage**: should be computed at every epoch (in MB).
-- **Disk Usage**: should be computed at every epoch (in MB).
+- **RAM Usage**: Total memory occupation of the process and its eventual sub-processes. Should be computed at every epoch (in MB).
+- **Disk Usage**: Only of additional data produced during training (like replay patterns). Should be computed at every epoch (in MB).
 
 ### Project Structure
 This repository is structured as follows:
@@ -64,6 +64,8 @@ Make your first submission:
 ```bash
 sh create_submission.sh
 ```
+
+Your `submission.zip` file is ready to be submitted on the [Codalab platform](https://competitions.codalab.org/competitions/23161?secret_key=3c99bed5-395d-4ef8-a46d-3a9c4f73d6c8)! 
 
 ### Create your own CL algorithm
 

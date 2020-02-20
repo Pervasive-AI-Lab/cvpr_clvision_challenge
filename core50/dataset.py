@@ -33,18 +33,16 @@ from PIL import Image
 
 
 class CORE50(object):
-    """ CORe50 Data Loader calss
+    """ CORe50 CLVision Challenge Data Loader.
 
     Args:
-        TODO: fix doc below
         root (string): Root directory of the dataset where ``core50_128x128``,
             ``paths.pkl``, ``LUP.pkl``, ``labels.pkl``, ``core50_imgs.npz``
             live. For example ``~/data/core50``.
         preload (string, optional): If True data is pre-loaded with look-up
             tables. RAM usage may be high.
         scenario (string, optional): One of the three scenarios of the CORe50
-            benchmark ``ni``, ``nc``, ``nic``, `nicv2_79`,``nicv2_196`` and
-             ``nicv2_391``.
+            benchmark ``ni``, ``multi-task-nc``, ``nic``.
         train (bool, optional): If True, creates the dataset from the training
             set, otherwise creates from test set.
         cumul (bool, optional): If True the cumulative scenario is assumed, the
@@ -54,8 +52,8 @@ class CORE50(object):
         run (int, optional): One of the 10 runs (from 0 to 9) in which the
             training batch order is changed as in the official benchmark.
         start_batch (int, optional): One of the training incremental batches
-            from 0 to max-batch - 1. Remember that for the ``ni``, ``nc`` and
-            ``nic`` we have respectively 8, 9 and 79 incremental batches. If
+            from 0 to max-batch - 1. Remember that for the ``ni``, ``multi-task-nc`` and
+            ``nic`` we have respectively 8, 9 and 391 incremental batches. If
             ``train=False`` this parameter will be ignored.
     """
 
@@ -340,7 +338,7 @@ class CORE50(object):
 
 if __name__ == "__main__":
 
-    # Create the dataset object for example with the "nic"
+    # Create the dataset object for example with the "multi-task-nc"
     # and assuming the core50 location in ~/core50/128x128/
     dataset = CORE50(root='data/', scenario="multi-task-nc", preload=True)
 
