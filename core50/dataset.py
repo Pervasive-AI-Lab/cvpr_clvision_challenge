@@ -52,9 +52,10 @@ class CORE50(object):
         run (int, optional): One of the 10 runs (from 0 to 9) in which the
             training batch order is changed as in the official benchmark.
         start_batch (int, optional): One of the training incremental batches
-            from 0 to max-batch - 1. Remember that for the ``ni``, ``multi-task-nc`` and
-            ``nic`` we have respectively 8, 9 and 391 incremental batches. If
-            ``train=False`` this parameter will be ignored.
+            from 0 to max-batch - 1. Remember that for the ``ni``,
+            ``multi-task-nc`` and ``nic`` we have respectively 8, 9 and 391
+            incremental batches. If ``train=False`` this parameter will be
+            ignored.
     """
 
     new2old_names = {'ni': 'ni', 'multi-task-nc': 'nc', 'nic': 'nicv2_391'}
@@ -196,7 +197,8 @@ class CORE50(object):
                     if y in self.labs_for_task[i]:
                         idx_x_task[i].append(idx)
                         y_x_task[i].append(y)
-                        i_valid_paths[i].append(os.path.join(self.root, self.paths[idx]))
+                        i_valid_paths[i].append(
+                            os.path.join(self.root, self.paths[idx]))
 
             for i in range(self.nbatch[self.scenario]):
                 if self.preload:
@@ -219,7 +221,8 @@ class CORE50(object):
 
         else:
             if self.preload:
-                valid_x = np.take(self.x, valid_idx_list, axis=0).astype(np.float32)
+                valid_x = np.take(self.x, valid_idx_list, axis=0)\
+                    .astype(np.float32)
             else:
                 # test paths
                 valid_paths = []
@@ -227,7 +230,8 @@ class CORE50(object):
                     valid_paths.append(os.path.join(self.root, self.paths[idx]))
 
                 # test imgs
-                valid_x = self.get_batch_from_paths(valid_paths).astype(np.float32)
+                valid_x = self.get_batch_from_paths(valid_paths)\
+                    .astype(np.float32)
 
             valid_y = np.asarray(valid_y, dtype=np.float32)
 
@@ -255,12 +259,15 @@ class CORE50(object):
             with open(filelist_tlabeled_path, "r") as rf:
                 for line in rf:
                     path, task_label = line.split()
-                    test_paths[int(task_label.strip())].append(os.path.join(test_img_dir, path.strip()))
+                    test_paths[int(task_label.strip())].append(
+                        os.path.join(test_img_dir, path.strip()))
 
             full_test = []
             for i in range(self.nbatch[self.scenario]):
-                test_x = self.get_batch_from_paths(test_paths[i]).astype(np.float32)
-                full_test.append([(test_x, np.asarray([-1] * len(test_paths[i]))), i])
+                test_x = self.get_batch_from_paths(test_paths[i])\
+                    .astype(np.float32)
+                full_test.append(
+                    [(test_x, np.asarray([-1] * len(test_paths[i]))), i])
 
         else:
             test_paths = []
