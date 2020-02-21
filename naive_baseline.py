@@ -15,8 +15,9 @@
 
 """
 
-Getting Started example for the CVPR 2020 CLVision Challenge. It will load the data and create the submission file
-for you in the cvpr_clvision_challenge/submissions directory.
+Getting Started example for the CVPR 2020 CLVision Challenge. It will load the
+data and create the submission file for you in the
+cvpr_clvision_challenge/submissions directory.
 
 """
 
@@ -45,8 +46,8 @@ def main(args):
     # do not remove this line
     start = time.time()
 
-    # Create the dataset object for example with the "ni, multi-task-nc, or nic tracks"
-    # and assuming the core50 location in ./core50/data/
+    # Create the dataset object for example with the "ni, multi-task-nc, or nic
+    # tracks" and assuming the core50 location in ./core50/data/
     dataset = CORE50(root='core50/data/', scenario=args.scenario,
                      preload=args.preload_data)
 
@@ -88,7 +89,8 @@ def main(args):
         ram_usage += stats['ram']
 
         stats, _ = test_multitask(
-            classifier, full_valdidset, args.batch_size, preproc=preprocess_imgs, multi_heads=heads
+            classifier, full_valdidset, args.batch_size,
+            preproc=preprocess_imgs, multi_heads=heads, verbose=False
         )
 
         valid_acc += stats['acc']
@@ -119,7 +121,8 @@ def main(args):
     print("Final inference on test set...")
     full_testset = dataset.get_full_test_set()
     stats, preds = test_multitask(
-        classifier, full_testset, args.batch_size, preproc=preprocess_imgs
+        classifier, full_testset, args.batch_size, preproc=preprocess_imgs,
+        multi_heads=heads, verbose=False
     )
 
     with open(sub_dir + "/test_preds.txt", "w") as wf:

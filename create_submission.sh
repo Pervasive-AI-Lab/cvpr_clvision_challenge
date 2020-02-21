@@ -5,7 +5,8 @@ python naive_baseline.py --scenario="ni" --sub_dir="ni"
 python naive_baseline.py --scenario="multi-task-nc" --sub_dir="multi-task-nc"
 python naive_baseline.py --scenario="nic" --sub_dir="nic"
 
-# create zip file to submit to codalab: please not that the directories should have the names below
-# depending on the challenge category you want to submit too (at least one)
+# create zip file to submit to codalab: please note that the directories should
+# have the names below depending on the challenge category you want to submit
+# too (at least one)
 cd submissions && zip -r ../submission.zip ./ni ./multi-task-nc ./nic
 

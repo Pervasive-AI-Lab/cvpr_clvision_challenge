@@ -202,7 +202,9 @@ def test_multitask(
             # we can use the stored head
             if verbose:
                 print("Using head: ", t)
-            model.fc = multi_heads[t]
+            with torch.no_grad():
+                model.fc.weight.copy_(multi_heads[t].weight)
+                model.fc.bias.copy_(multi_heads[t].bias)
 
         model = maybe_cuda(model, use_cuda=use_cuda)
         acc = None
@@ -248,6 +250,8 @@ def test_multitask(
     if multi_heads:
         if verbose:
             print("classifier reset...")
-        model.fc = torch.nn.Linear(512, 50)
+        with torch.no_grad():
+            model.fc.weight.fill_(0)
+            model.fc.bias.fill_(0)
 
     return stats, preds
