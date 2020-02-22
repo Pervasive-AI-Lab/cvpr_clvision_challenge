@@ -68,16 +68,33 @@ def main(args):
     ext_mem_sz = []
     ram_usage = []
     heads = []
+    ext_mem = None
 
     # loop over the training incremental batches (x, y, t)
     for i, train_batch in enumerate(dataset):
         train_x, train_y, t = train_batch
+
+        # adding eventual replay patterns to the current batch
+        idxs_cur = np.random.choice(
+            train_x.shape[0], args.replay_examples, replace=False
+        )
+
+        if i == 0:
+            ext_mem = [train_x[idxs_cur], train_y[idxs_cur]]
+        else:
+            ext_mem = [
+                np.concatenate((train_x[idxs_cur], ext_mem[0])),
+                np.concatenate((train_y[idxs_cur], ext_mem[1]))]
+
+        train_x = np.concatenate((train_x, ext_mem[0]))
+        train_y = np.concatenate((train_y, ext_mem[1]))
 
         print("----------- batch {0} -------------".format(i))
         print("x shape: {0}, y shape: {1}"
               .format(train_x.shape, train_y.shape))
         print("Task Label: ", t)
 
+        # train the classifier on the current batch/task
         _, _, stats = train_net(
             opt, classifier, criterion, args.batch_size, train_x, train_y, t,
             args.epochs, preproc=preprocess_imgs
@@ -85,9 +102,11 @@ def main(args):
         if args.scenario == "multi-task-nc":
             heads.append(copy.deepcopy(classifier.fc))
 
+        # collect statistics
         ext_mem_sz += stats['disk']
         ram_usage += stats['ram']
 
+        # test on the validation set
         stats, _ = test_multitask(
             classifier, full_valdidset, args.batch_size,
             preproc=preprocess_imgs, multi_heads=heads, verbose=False
@@ -152,6 +171,11 @@ if __name__ == "__main__":
                         help='batch_size')
     parser.add_argument('--epochs', type=int, default=1,
                         help='number of epochs')
+
+    # Continual Learning
+    parser.add_argument('--replay_examples', type=int, default=0,
+                        help='data examples to keep in memory for each batch '
+                             'for replay.')
 
     # Misc
     parser.add_argument('--sub_dir', type=str, default="multi-task-nc",
