@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -e
 
 # Run experiments: the submission for each exp will be created in "/submissions"
 python naive_baseline.py --scenario="ni" --sub_dir="ni"
@@ -10,3 +11,4 @@ python naive_baseline.py --scenario="nic" --sub_dir="nic"
 # too (at least one)
 cd submissions && zip -r ../submission.zip ./ni ./multi-task-nc ./nic
 
+set +e
