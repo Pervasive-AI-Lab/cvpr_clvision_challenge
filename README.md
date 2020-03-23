@@ -34,9 +34,9 @@ is mandatory and should respect the frequency requested for each metric:
 This repository is structured as follows:
 
 - [`core50/`](core50): Root directory for the CORe50  benchmark, the main dataset of the challenge.
-- [`utils/`](core): Directory containing a few utilities methods.
+- [`utils/`](core): Directory containing a few utility methods.
 - [`cl_ext_mem/`](cl_ext_mem): It will be generated after the repository setup (you need to store here eventual 
-memory replay patterns and other data needed during training by your CL algorithm)  
+memory replay patterns and other data needed during training by your CL algorithm)
 - [`submissions/`](submissions): It will be generated after the repository setup. It is where the submissions directory
 will be created.
 - [`fetch_data_and_setup.sh`](fetch_data_and_setup.sh): Basic bash script to download data and other utilities.
@@ -45,6 +45,7 @@ file.
 - [`naive_baseline.py`](naive_baseline.py): Basic script to run a naive algorithm on the tree challenge categories. 
 This script is based on PyTorch but you can use any framework you want. CORe50 utilities are framework independent.
 - [`environment.yml`](environment.yml): Basic conda environment to run the baselines.
+- [`Dockerfile`](Dockerfile), [`build_docker_image.sh`](build_docker_image.sh), [`create_submission_in_docker.sh`](create_submission_in_docker.sh): Essential Docker setup that can be used as a base for creating the final dockerized solution (see: [Dockerfile for Final Submission](#dockerfile-for-final-submission)).
 - [`LICENSE`](LICENSE): Standard Creative Commons Attribution 4.0 International License.
 - [`README.md`](README.md): This instructions file.
 
@@ -105,7 +106,30 @@ load them on-the-fly from the disk, you can comment the second line.
 
 ### Dockerfile for Final Submission
 
-...To be released soon!
+You'll be asked to submit a dockerized solution for the final evaluation phase.
+
+First, before packing your solution, consider creating a mock-up submission using the provided [`Dockerfile`](Dockerfile) just to make sure your local [Docker](https://www.docker.com/) and [Nvidia Docker](https://github.com/NVIDIA/nvidia-docker) are configured properly. In order to do so, follow these recommended steps:
+
+If you haven't done it yet, run:
+```bash
+bash fetch_data_and_setup.sh
+```
+Then, build the base Docker image by running (by default, this will create an image named "cvpr_clvision_image"):
+```bash
+bash build_docker_image.sh
+```
+Finally, create a submission using the provided [`naive_baseline.py`](naive_baseline.py) by running:
+```bash
+bash create_submission_in_docker.sh
+```
+
+While the previous steps will allow you to create a submission for the provided naive baseline, you'll probably need to customize few files in order to reproduce your results:
+
+- [`environment.yml`](environment.yml): adapt the enviroment file in order to reproduce your local setup. You can also export your existing conda environment ([guide here](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#sharing-an-environment)).
+- [`create_submission.sh`](create_submission.sh): it describes the recipe used to create a valid submission that can be uploaded to Codalab. You may need to change the name of the main Python script (which defaults to `naive_baseline.py`).
+- [`Dockerfile`](Dockerfile): the base Dockerfile already includes the recipe to reproduce the custom conda environment you defined in [`environment.yml`](environment.yml). However, you can adapt it if your base setup is more complex than the base one. In order to streamline the final evaluation phase, we recommend to *append* your custom build instructions at the end of the base Dockerfile.
+
+*More instructions regarding the packaging of the final dockerized submission will be unveiled soon!*
 
 ### Authors and Contacts
 
@@ -114,13 +138,9 @@ This repository has been created by:
 - [Vincenzo Lomonaco]()
 - [Massimo Caccia]()
 - [Pau Rodriguez]()
-- [Lorenzo Pellegrino]()
+- [Lorenzo Pellegrini]()
 
 In case of any question or doubt you can contact us via email at *vincenzo.lomonaco@unibo*, or join the [ContinualAI slack
 workspace](https://join.slack.com/t/continualai/shared_invite/enQtNjQxNDYwMzkxNzk0LTBhYjg2MjM0YTM2OWRkNDYzOGE0ZTIzNDQ0ZGMzNDE3ZGUxNTZmNmM1YzJiYzgwMTkyZDQxYTlkMTI3NzZkNjU) 
 at the `#clvision-workshop` channel to ask your questions and be always updated about the progress of the
 competition.
-
-
-
-
