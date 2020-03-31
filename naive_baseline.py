@@ -109,7 +109,8 @@ def main(args):
         # test on the validation set
         stats, _ = test_multitask(
             classifier, full_valdidset, args.batch_size,
-            preproc=preprocess_imgs, multi_heads=heads, verbose=False
+            preproc=preprocess_imgs, multi_heads=heads,
+            last_layer_name="fc", verbose=False
         )
 
         valid_acc += stats['acc']

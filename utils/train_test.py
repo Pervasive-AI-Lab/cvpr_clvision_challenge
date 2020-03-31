@@ -24,9 +24,8 @@ from __future__ import absolute_import
 
 import numpy as np
 import torch
-from torch.autograd import Variable
+from models.batch_renormalization import BatchRenormalization2D
 from .common import pad_data, shuffle_in_unison, check_ext_mem, check_ram_usage
-
 
 def train_net(optimizer, model, criterion, mb_size, x, y, t,
               train_ep, preproc=None, use_cuda=True, mask=None):
@@ -73,13 +72,12 @@ def train_net(optimizer, model, criterion, mb_size, x, y, t,
     train_x = torch.from_numpy(train_x).type(torch.FloatTensor)
     train_y = torch.from_numpy(train_y).type(torch.LongTensor)
 
+    model.train()
+
     for ep in range(train_ep):
 
         stats['disk'].append(check_ext_mem("cl_ext_mem"))
         stats['ram'].append(check_ram_usage())
-
-        model.active_perc_list = []
-        model.train()
 
         print("training ep: ", ep)
         correct_cnt, ave_loss = 0, 0
@@ -169,7 +167,8 @@ def maybe_cuda(what, use_cuda=True, **kw):
 
 
 def test_multitask(
-        model, test_set, mb_size, preproc=None, use_cuda=True, multi_heads=[], verbose=True):
+        model, test_set, mb_size, preproc=None, use_cuda=True, multi_heads=[],
+        last_layer_name="output", verbose=True):
     """
     Test a model considering that the test set is composed of multiple tests
     one for each task.
@@ -203,8 +202,11 @@ def test_multitask(
             if verbose:
                 print("Using head: ", t)
             with torch.no_grad():
-                model.fc.weight.copy_(multi_heads[t].weight)
-                model.fc.bias.copy_(multi_heads[t].bias)
+                if last_layer_name == "output":
+                    model.output.weight.copy_(multi_heads[t].weight)
+                else:
+                    model.fc.weight.copy_(multi_heads[t].weight)
+                    model.fc.bias.copy_(multi_heads[t].bias)
 
         model = maybe_cuda(model, use_cuda=use_cuda)
         acc = None
@@ -251,7 +253,315 @@ def test_multitask(
         if verbose:
             print("classifier reset...")
         with torch.no_grad():
-            model.fc.weight.fill_(0)
-            model.fc.bias.fill_(0)
+            if last_layer_name == "output":
+                model.output.weight.fill_(0)
+            else:
+                model.fc.weight.fill_(0)
+                model.fc.bias.fill_(0)
 
     return stats, preds
+
+def replace_bn_with_brn(
+        m, name="", momentum=0.1, r_d_max_inc_step=0.0001, r_max=1.0,
+        d_max=0.0, max_r_max=3.0, max_d_max=5.0):
+    for attr_str in dir(m):
+        target_attr = getattr(m, attr_str)
+        if type(target_attr) == torch.nn.BatchNorm2d:
+            # print('replaced: ', name, attr_str)
+            setattr(m, attr_str,
+                    BatchRenormalization2D(
+                        target_attr.num_features,
+                        gamma=target_attr.weight,
+                        beta=target_attr.bias,
+                        running_mean=target_attr.running_mean,
+                        running_var=target_attr.running_var,
+                        eps=target_attr.eps,
+                        momentum=momentum,
+                        r_d_max_inc_step=r_d_max_inc_step,
+                        r_max=r_max,
+                        d_max=d_max,
+                        max_r_max=max_r_max,
+                        max_d_max=max_d_max
+                        )
+                    )
+    for n, ch in m.named_children():
+        replace_bn_with_brn(ch, n, momentum, r_d_max_inc_step, r_max, d_max,
+                            max_r_max, max_d_max)
+
+def change_brn_pars(
+        m, name="", momentum=0.1, r_d_max_inc_step=0.0001, r_max=1.0,
+        d_max=0.0):
+    for attr_str in dir(m):
+        target_attr = getattr(m, attr_str)
+        if type(target_attr) == BatchRenormalization2D:
+            target_attr.momentum = torch.tensor((momentum), requires_grad=False)
+            target_attr.r_max = torch.tensor(r_max, requires_grad=False)
+            target_attr.d_max = torch.tensor(d_max, requires_grad=False)
+            target_attr.r_d_max_inc_step = r_d_max_inc_step
+
+    for n, ch in m.named_children():
+        change_brn_pars(ch, n, momentum, r_d_max_inc_step, r_max, d_max)
+
+def consolidate_weights(model, cur_clas):
+    """ Mean-shift for the target layer weights"""
+
+    with torch.no_grad():
+        # print(model.classifier[0].weight.size())
+        globavg = np.average(model.output.weight.detach()
+                             .cpu().numpy()[cur_clas])
+        # print("GlobalAvg: {} ".format(globavg))
+        for c in cur_clas:
+            w = model.output.weight.detach().cpu().numpy()[c]
+
+            if c in cur_clas:
+                new_w = w - globavg
+                # if len(cur_clas) == 10:
+                #     print("This is first batch!")
+                #     new_w *= 4
+                if c in model.saved_weights.keys():
+                    wpast_j = np.sqrt(model.past_j[c] / model.cur_j[c])
+                    # wpast_j = model.past_j[c] / model.cur_j[c]
+                    model.saved_weights[c] = (model.saved_weights[c] * wpast_j
+                     + new_w) / (wpast_j + 1)
+                else:
+                    model.saved_weights[c] = new_w
+
+            # debug
+            # print(
+            #     "C: " + str(c) + "  -  Avg W: " + str(np.average(w)) +
+            #     " Std W: " + str(np.std(w)) + " Max W: " + str(np.max(w))
+            # )
+
+def set_consolidate_weights(model):
+    """ set trained weights """
+
+    with torch.no_grad():
+        for c, w in model.saved_weights.items():
+            model.output.weight[c].copy_(
+                torch.from_numpy(model.saved_weights[c])
+            )
+
+
+def reset_weights(model, cur_clas):
+    """ reset weights"""
+
+    with torch.no_grad():
+        model.output.weight.fill_(0.0)
+        # model.output.weight.copy_(
+        #     torch.zeros(model.output.weight.size())
+        # )
+        for c, w in model.saved_weights.items():
+            if c in cur_clas:
+                model.output.weight[c].copy_(
+                    torch.from_numpy(model.saved_weights[c])
+                )
+
+def examples_per_class(train_y):
+    count = {i:0 for i in range(50)}
+    for y in train_y:
+        count[int(y)] +=1
+
+    return count
+
+def set_brn_to_train(m, name=""):
+        for attr_str in dir(m):
+            target_attr = getattr(m, attr_str)
+            if type(target_attr) == BatchRenormalization2D:
+                target_attr.train()
+                # print("setting to train..")
+        for n, ch in m.named_children():
+            set_brn_to_train(ch, n)
+
+def set_brn_to_eval(m, name=""):
+    for attr_str in dir(m):
+        target_attr = getattr(m, attr_str)
+        if type(target_attr) == BatchRenormalization2D:
+            target_attr.eval()
+            # print("setting to train..")
+    for n, ch in m.named_children():
+        set_brn_to_train(ch, n)
+
+def freeze_up_to(model, freeze_below_layer):
+    for name, param in model.named_parameters():
+        # tells whether we want to use gradients for a given parameter
+        if "bn" not in name:
+            param.requires_grad = False
+            print("Freezing parameter " + name)
+        if name == freeze_below_layer:
+            break
+
+def create_syn_data(model):
+    size = 0
+    print('Creating Syn data for Optimal params and their Fisher info')
+
+    for name, param in model.named_parameters():
+        if "bn" not in name and "output" not in name:
+            print(name, param.flatten().size(0))
+            size += param.flatten().size(0)
+
+    # The first array returned is a 2D array: the first component contains
+    # the params at loss minimum, the second the parameter importance
+    # The second array is a dictionary with the synData
+    synData = {}
+    synData['old_theta'] = torch.zeros(size, dtype=torch.float32)
+    synData['new_theta'] = torch.zeros(size, dtype=torch.float32)
+    synData['grad'] = torch.zeros(size, dtype=torch.float32)
+    synData['trajectory'] = torch.zeros(size, dtype=torch.float32)
+    synData['cum_trajectory'] = torch.zeros(size, dtype=torch.float32)
+
+    return torch.zeros((2, size), dtype=torch.float32), synData
+
+
+def extract_weights(model, target):
+
+    with torch.no_grad():
+        weights_vector= None
+        for name, param in model.named_parameters():
+            if "bn" not in name and "output" not in name:
+                # print(name, param.flatten())
+                if weights_vector is None:
+                    weights_vector = param.flatten()
+                else:
+                    weights_vector = torch.cat(
+                        (weights_vector, param.flatten()), 0)
+
+        target[...] = weights_vector.cpu()
+
+
+def extract_grad(model, target):
+    # Store the gradients into target
+    with torch.no_grad():
+        grad_vector= None
+        for name, param in model.named_parameters():
+            if "bn" not in name and "output" not in name:
+                # print(name, param.flatten())
+                if grad_vector is None:
+                    grad_vector = param.grad.flatten()
+                else:
+                    grad_vector = torch.cat(
+                        (grad_vector, param.grad.flatten()), 0)
+
+        target[...] = grad_vector.cpu()
+
+
+def init_batch(net, ewcData, synData):
+    extract_weights(net, ewcData[0])  # Keep initial weights
+    synData['trajectory'] = 0
+
+
+def pre_update(net, synData):
+    extract_weights(net, synData['old_theta'])
+
+
+def post_update(net, synData):
+    extract_weights(net, synData['new_theta'])
+    extract_grad(net, synData['grad'])
+
+    synData['trajectory'] += synData['grad'] * (
+                    synData['new_theta'] - synData['old_theta'])
+
+
+def update_ewc_data(net, ewcData, synData, clip_to, c=0.0015):
+    extract_weights(net, synData['new_theta'])
+    eps = 0.0000001  # 0.001 in few task - 0.1 used in a more complex setup
+
+    synData['cum_trajectory'] += c * synData['trajectory'] / (
+                    np.square(synData['new_theta'] - ewcData[0]) + eps)
+
+    ewcData[1] = torch.empty_like(synData['cum_trajectory'])\
+        .copy_(-synData['cum_trajectory'])
+    # change sign here because the Ewc regularization
+    # in Caffe (theta - thetaold) is inverted w.r.t. syn equation [4]
+    # (thetaold - theta)
+    ewcData[1] = torch.clamp(ewcData[1], max=clip_to)
+    # (except CWR)
+    ewcData[0] = synData['new_theta'].clone().detach()
+
+def compute_ewc_loss(model, ewcData, lambd=0):
+
+    weights_vector = None
+    for name, param in model.named_parameters():
+        if "bn" not in name and "output" not in name:
+            # print(name, param.flatten())
+            if weights_vector is None:
+                weights_vector = param.flatten()
+            else:
+                weights_vector = torch.cat(
+                    (weights_vector, param.flatten()), 0)
+
+    ewcData = maybe_cuda(ewcData, use_cuda=True)
+    loss = (lambd / 2) * torch.dot(ewcData[1], (weights_vector - ewcData[0])**2)
+    return loss
+
+def get_accuracy(model, criterion, batch_size, test_x, test_y, use_cuda=True,
+                 mask=None, preproc=None):
+    """
+    Test accuracy given a model and the test data.
+
+        Args:
+            model (nn.Module): the pytorch model to test.
+            criterion (func): loss function.
+            batch_size (int): mini-batch size.
+            test_x (tensor): test data.
+            test_y (tensor): test labels.
+            use_cuda (bool): if we want to use gpu or cpu.
+            mask (bool): if we want to maks out some classes from the results.
+        Returns:
+            ave_loss (float): average loss across the test set.
+            acc (float): average accuracy.
+            accs (list): average accuracy for class.
+    """
+
+    model.eval()
+
+    correct_cnt, ave_loss = 0, 0
+    model = maybe_cuda(model, use_cuda=use_cuda)
+
+    num_class = int(np.max(test_y) + 1)
+    hits_per_class = [0] * num_class
+    pattern_per_class = [0] * num_class
+    test_it = test_y.shape[0] // batch_size + 1
+
+    test_x = torch.from_numpy(test_x).type(torch.FloatTensor)
+    test_y = torch.from_numpy(test_y).type(torch.LongTensor)
+
+    if preproc:
+        test_x = preproc(test_x)
+
+    for i in range(test_it):
+        # indexing
+        start = i * batch_size
+        end = (i + 1) * batch_size
+
+        x = maybe_cuda(test_x[start:end], use_cuda=use_cuda)
+        y = maybe_cuda(test_y[start:end], use_cuda=use_cuda)
+
+        logits = model(x)
+
+        if mask is not None:
+            # we put an high negative number so that after softmax that prob
+            # will be zero and not contribute to the loss
+            idx = (torch.FloatTensor(mask).cuda() == 0).nonzero()
+            idx = idx.view(idx.size(0))
+            logits[:, idx] = -10e10
+
+        loss = criterion(logits, y)
+        _, pred_label = torch.max(logits.data, 1)
+        correct_cnt += (pred_label == y.data).sum()
+        ave_loss += loss.item()
+
+        for label in y.data:
+            pattern_per_class[int(label)] += 1
+
+        for i, pred in enumerate(pred_label):
+            if pred == y.data[i]:
+                hits_per_class[int(pred)] += 1
+
+    accs = np.asarray(hits_per_class) / \
+           np.asarray(pattern_per_class).astype(float)
+
+    acc = correct_cnt.item() * 1.0 / test_y.size(0)
+
+    ave_loss /= test_y.size(0)
+
+    return ave_loss, acc, accs
