@@ -106,30 +106,70 @@ load them on-the-fly from the disk, you can comment the second line.
 
 ### Dockerfile for Final Submission
 
-You'll be asked to submit a dockerized solution for the final evaluation phase.
+You'll be asked to submit a dockerized solution for the final evaluation phase. This final submission archive is **completely different from the one created for the Codalab platform**.
 
-First, before packing your solution, consider creating a mock-up submission using the provided [`Dockerfile`](Dockerfile) just to make sure your local [Docker](https://www.docker.com/) and [Nvidia Docker](https://github.com/NVIDIA/nvidia-docker) are configured properly. In order to do so, follow these recommended steps:
+#### Prerequisites
+
+First, before packing your solution, consider creating a mock-up Codalab submission using the provided [`Dockerfile`](Dockerfile) just to make sure your local [Docker](https://www.docker.com/) and [Nvidia Docker](https://github.com/NVIDIA/nvidia-docker) are configured properly. In order to do so, follow these recommended steps:
 
 If you haven't done it yet, run:
 ```bash
 bash fetch_data_and_setup.sh
 ```
-Then, build the base Docker image by running (by default, this will create an image named "cvpr_clvision_image"):
+Then, build the base Docker image by running:
 ```bash
 bash build_docker_image.sh
 ```
-Finally, create a submission using the provided [`naive_baseline.py`](naive_baseline.py) by running:
+this will create an image named "cvpr\_clvision\_image". You can check the image details by running:
+```bash
+docker image ls
+```
+ 
+Finally, create a Codalab submission by running:
 ```bash
 bash create_submission_in_docker.sh
 ```
+this script will use the provided [`naive_baseline.py`](naive_baseline.py) as the default entry point.
 
-While the previous steps will allow you to create a submission for the provided naive baseline, you'll probably need to customize few files in order to reproduce your results:
+ We want to double-stress that the created submission will be the Codalab one, which has nothing to do with the final "dockerized" solution submission.
+
+#### Preparing the final archive
+
+While the previous steps will allow you to create a Codalab submission for the provided naive baseline, you'll probably need to customize few files in order to reproduce your results:
 
 - [`environment.yml`](environment.yml): adapt the enviroment file in order to reproduce your local setup. You can also export your existing conda environment ([guide here](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#sharing-an-environment)).
 - [`create_submission.sh`](create_submission.sh): it describes the recipe used to create a valid submission that can be uploaded to Codalab. You may need to change the name of the main Python script (which defaults to `naive_baseline.py`).
-- [`Dockerfile`](Dockerfile): the base Dockerfile already includes the recipe to reproduce the custom conda environment you defined in [`environment.yml`](environment.yml). However, you can adapt it if your base setup is more complex than the base one. In order to streamline the final evaluation phase, we recommend to *append* your custom build instructions at the end of the base Dockerfile.
+- [`Dockerfile`](Dockerfile): the base Dockerfile already includes the recipe that will reproduce the custom conda environment you defined in [`environment.yml`](environment.yml). However, if your base setup is more complex than the base one, feel free to adapt it. In order to streamline the final evaluation phase, we recommend to *append* your custom build instructions at the end of the base Dockerfile.
 
-*More instructions regarding the packaging of the final dockerized submission will be unveiled soon!*
+Finally, before preparing the final archive, re-run the steps listed above to make sure the changes you made to the 3 aforementioned files are correct and that the results are aligned with ones you obtained in your non-docker environment.
+
+As you may have noticed, the "cvpr\_clvision\_image" created by `build_docker_image.sh` may be too big to be sent via mail / common cloud sharing services. In order to facilitate the final submission process, only the source code and resource files are to be packaged for upload. The final *zip archive* must include the project source code, all the needed resources (with few exceptions listed below) and properly configured `environment.yml`, `create_submission.sh` and `Dockerfile` files.
+
+For instance, the final submission for the provided naive baseline is a zip file with the following content:
+
+```
+.
+├── core50
+│   └── dataset.py
+├── create_submission.sh
+├── Dockerfile
+├── .dockerignore
+├── environment.yml
+├── naive_baseline.py
+└── utils
+    ├── common.py
+    └── train_test.py
+```
+
+The final archive should be uploaded to a file sharing service of your choice and a share link has to be sent to [vincenzo.lomonaco@unibo.it](mailto:vincenzo.lomonaco@unibo.it). The link must allow direct access to the submission archive so that the download can be completed without having to be registered to the chosen file sharing service. Use "CLVision Challenge Submission " followed by your Codalab account username as the subject for your mail. Also, please include the full list of participant(s) in the mail body.
+
+#### Exceptions
+
+- **DO NOT INCLUDE THE DATASET**. In order to do so, just exclude the `core50/data` directory from the final archive.
+- **DO NOT INCLUDE WORKING DATA**: don't include the `cl_ext_mem` directory in the final archive.
+- **DO NOT INCLUDE PREVIOUS CODALAB SUBMISSIONS**: don't include the `submissions` directory in the final archive.
+- For the final dockerized final submission, please **do not include pretrained models that can be downloaded on-the-fly**. Many pretrained models, especially torchvision ones, can be usually fetched at runtime by passing a proper "download" parameter to the module constructor. This applies to other deep learning frameworks and libraries as well.
+- Please **do not include other unrelated files** and directories such as Readmes, .gitignore, \_\_pychache\_\_, etc. However, you can customize and include the `.dockerignore` file.
 
 ### Authors and Contacts
 
