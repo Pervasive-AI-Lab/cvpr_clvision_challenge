@@ -143,7 +143,9 @@ While the previous steps will allow you to create a Codalab submission for the p
 
 Finally, before preparing the final archive, re-run the steps listed above to make sure the changes you made to the 3 aforementioned files are correct and that the results are aligned with ones you obtained in your non-docker environment.
 
-As you may have noticed, the "cvpr\_clvision\_image" created by `build_docker_image.sh` may be too big to be sent via mail / common cloud sharing services. In order to facilitate the final submission process, only the source code and resource files are to be packaged for upload. The final *zip archive* must include the project source code, all the needed resources (with few exceptions listed below) and properly configured `environment.yml`, `create_submission.sh` and `Dockerfile` files.
+As you may have noticed, the "cvpr\_clvision\_image" created by `build_docker_image.sh` may be too big to be sent via mail / common cloud sharing services. In order to facilitate the final submission process, only the source code and resource files are to be packaged for upload. The final *zip archive* **must include** the project *source code*, all the needed *resources* (with few exceptions listed below) and properly configured `environment.yml`, `create_submission.sh` and `Dockerfile` files.
+
+Also, **include a `LICENSE`** file in the root of the archive. In order to prevent licensing issues, we recommend the MIT License, which can be copied from [here](https://choosealicense.com/licenses/mit/) (customize the author field by adding all the participants full names). In any case, don't re-use the LICENSE already provided in this repository. Submissions lacking of a proper `LICENSE` will not be accepted.
 
 For instance, the final submission for the provided naive baseline is a zip file with the following content:
 
@@ -155,6 +157,7 @@ For instance, the final submission for the provided naive baseline is a zip file
 ├── Dockerfile
 ├── .dockerignore
 ├── environment.yml
+├── LICENSE
 ├── naive_baseline.py
 └── utils
     ├── common.py
