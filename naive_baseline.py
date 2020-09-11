@@ -109,7 +109,8 @@ def main(args):
         # test on the validation set
         stats, _ = test_multitask(
             classifier, full_valdidset, args.batch_size,
-            preproc=preprocess_imgs, multi_heads=heads, verbose=False
+            preproc=preprocess_imgs, multi_heads=heads,
+            last_layer_name="fc", verbose=False
         )
 
         valid_acc += stats['acc']
@@ -141,7 +142,7 @@ def main(args):
     full_testset = dataset.get_full_test_set()
     stats, preds = test_multitask(
         classifier, full_testset, args.batch_size, preproc=preprocess_imgs,
-        multi_heads=heads, verbose=False
+        multi_heads=heads, last_layer_name="fc", verbose=False
     )
 
     with open(sub_dir + "/test_preds.txt", "w") as wf:

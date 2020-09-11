@@ -28,7 +28,7 @@ import psutil
 import shutil
 
 
-def shuffle_in_unison(dataset, seed, in_place=False):
+def shuffle_in_unison(dataset, seed=None, in_place=False):
     """
     Shuffle two (or more) list in unison. It's important to shuffle the images
     and the labels maintaining their correspondence.
@@ -43,7 +43,8 @@ def shuffle_in_unison(dataset, seed, in_place=False):
                   is set to False.
     """
 
-    np.random.seed(seed)
+    if seed:
+        np.random.seed(seed)
     rng_state = np.random.get_state()
     new_dataset = []
     for x in dataset:
