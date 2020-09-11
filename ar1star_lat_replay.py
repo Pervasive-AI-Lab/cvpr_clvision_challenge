@@ -38,7 +38,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 # recover exp configuration name
 parser = argparse.ArgumentParser(description='Run CL experiments')
-parser.add_argument('--name', dest='exp_name',  default='DEFAULT',
+parser.add_argument('--cfg', dest='exp_name',  default='NIC',
                     help='name of the experiment you want to run.')
 args = parser.parse_args()
 
@@ -73,6 +73,8 @@ l2 = eval(exp_config['l2'])
 freeze_below_layer = eval(exp_config['freeze_below_layer'])
 latent_layer_num = eval(exp_config['latent_layer_num'])
 reg_lambda = eval(exp_config['reg_lambda'])
+scenario = eval(exp_config['scenario'])
+sub_dir = scenario
 
 # setting up log dir for tensorboard
 log_dir = 'logs/' + exp_name
@@ -86,8 +88,11 @@ writer.add_text("parameters", hyper, 0)
 tot_it_step = 0
 rm = None
 
+# do not remove this line
+start_time = time.time()
+
 # Create the dataset object
-dataset = CORE50(root='core50/data/', scenario=scenario, preload=True)
+dataset = CORE50(root='/home/admin/ssd_data/cvpr_competition/cvpr_competition_data/', scenario=scenario, preload=False)
 preproc = preprocess_imgs
 
 # Get the fixed test set
@@ -102,7 +107,7 @@ replace_bn_with_brn(
 model.saved_weights = {}
 model.past_j = {i:0 for i in range(50)}
 model.cur_j = {i:0 for i in range(50)}
-if ewc_lambda != 0:
+if reg_lambda != 0:
     ewcData, synData = create_syn_data(model)
 
 # Optimizer setup
@@ -124,11 +129,13 @@ stats = {"ram": [], "disk": []}
 # loop over the training incremental batches
 for i, train_batch in enumerate(dataset):
 
-    if ewc_lambda != 0:
+    if reg_lambda != 0:
         init_batch(model, ewcData, synData)
 
+    # we freeze the layer below the replay layer since the first batch
+    freeze_up_to(model, freeze_below_layer, only_conv=False)
+
     if i == 1:
-        freeze_up_to(model, freeze_below_layer)
         change_brn_pars(
             model, momentum=inc_update_rate, r_d_max_inc_step=0,
             r_max=max_r_max, d_max=max_d_max)
@@ -149,11 +156,9 @@ for i, train_batch in enumerate(dataset):
     print("----------- batch {0} -------------".format(i))
     print("train_x shape: {}, train_y shape: {}"
           .format(train_x.shape, train_y.shape))
-    print("Task Label: ", t)
 
-    model.eval()
-    model.end_features.train()
-    model.output.train()
+    model.train()
+    model.lat_features.eval()
 
     reset_weights(model, cur_class)
     cur_ep = 0
@@ -194,7 +199,7 @@ for i, train_batch in enumerate(dataset):
 
         for it in range(it_x_ep):
 
-            if ewc_lambda !=0:
+            if reg_lambda !=0:
                 pre_update(model, synData)
 
             start = it * (mb_size - n2inject)
@@ -231,14 +236,14 @@ for i, train_batch in enumerate(dataset):
             correct_cnt += (pred_label == y_mb).sum()
 
             loss = criterion(logits, y_mb)
-            if ewc_lambda !=0:
-                loss += compute_ewc_loss(model, ewcData, lambd=ewc_lambda)
+            if reg_lambda !=0:
+                loss += compute_ewc_loss(model, ewcData, lambd=reg_lambda)
             ave_loss += loss.item()
 
             loss.backward()
             optimizer.step()
 
-            if ewc_lambda !=0:
+            if reg_lambda !=0:
                 post_update(model, synData)
 
             acc = correct_cnt.item() / \
@@ -254,14 +259,13 @@ for i, train_batch in enumerate(dataset):
 
             # Log scalar values (scalar summary) to TB
             tot_it_step +=1
-            with summary_writer.as_default():
-                tf.summary.scalar('train_loss', ave_loss, step=tot_it_step)
-                tf.summary.scalar('train_accuracy', acc, step=tot_it_step)
+            writer.add_scalar('train_loss', ave_loss, tot_it_step)
+            writer.add_scalar('train_accuracy', acc, tot_it_step)
 
         cur_ep += 1
 
     consolidate_weights(model, cur_class)
-    if ewc_lambda != 0:
+    if reg_lambda != 0:
         update_ewc_data(model, ewcData, synData, 0.001, 1)
 
     # how many patterns to save for next iter
@@ -301,8 +305,8 @@ for i, train_batch in enumerate(dataset):
     )
 
     # Log scalar values (scalar summary) to TB
-    with summary_writer.as_default():
-        tf.summary.scalar('test_accuracy', stats_test['acc'][0], step=i)
+    writer.add_scalar('test_loss', ave_loss, i)
+    writer.add_scalar('test_accuracy', acc, i)
 
     # update number examples encountered over time
     for c, n in model.cur_j.items():
@@ -322,7 +326,7 @@ if not os.path.exists(sub_dir):
 create_code_snapshot(".", sub_dir + "/code_snapshot")
 
 # generating metadata.txt: with all the data used for the CLScore
-elapsed = (time.time() - start) / 60
+elapsed = (time.time() - start_time) / 60
 print("Training Time: {}m".format(elapsed))
 with open(sub_dir + "/metadata.txt", "w") as wf:
     for obj in [
@@ -332,15 +336,15 @@ with open(sub_dir + "/metadata.txt", "w") as wf:
         wf.write(str(obj) + "\n")
 
 # test_preds.txt: with a list of labels separated by "\n"
-# print("Final inference on test set...")
-# full_testset = dataset.get_full_test_set()
-# stats, preds = test_multitask(
-#     model, full_testset, mb_size, preproc=preprocess_imgs,
-#     multi_heads=heads, verbose=False
-# )
+print("Final inference on test set...")
+full_testset = dataset.get_full_test_set()
+stats, preds = test_multitask(
+    model, full_testset, mb_size, preproc=preprocess_imgs,
+    multi_heads=heads, verbose=False
+)
 
-# with open(sub_dir + "/test_preds.txt", "w") as wf:
-#     for pred in preds:
-#         wf.write(str(pred) + "\n")
+with open(sub_dir + "/test_preds.txt", "w") as wf:
+    for pred in preds:
+        wf.write(str(pred) + "\n")
 
 print("Experiment completed.")

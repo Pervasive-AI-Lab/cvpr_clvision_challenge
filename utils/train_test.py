@@ -24,7 +24,7 @@ from __future__ import absolute_import
 
 import numpy as np
 import torch
-from models.batch_renormalization import BatchRenormalization2D
+from models.batch_renorm import BatchRenorm2D
 from .common import pad_data, shuffle_in_unison, check_ext_mem, check_ram_usage
 
 def train_net(optimizer, model, criterion, mb_size, x, y, t,
@@ -264,73 +264,59 @@ def test_multitask(
 def replace_bn_with_brn(
         m, name="", momentum=0.1, r_d_max_inc_step=0.0001, r_max=1.0,
         d_max=0.0, max_r_max=3.0, max_d_max=5.0):
-    for attr_str in dir(m):
-        target_attr = getattr(m, attr_str)
-        if type(target_attr) == torch.nn.BatchNorm2d:
-            # print('replaced: ', name, attr_str)
-            setattr(m, attr_str,
-                    BatchRenormalization2D(
-                        target_attr.num_features,
-                        gamma=target_attr.weight,
-                        beta=target_attr.bias,
-                        running_mean=target_attr.running_mean,
-                        running_var=target_attr.running_var,
-                        eps=target_attr.eps,
-                        momentum=momentum,
-                        r_d_max_inc_step=r_d_max_inc_step,
-                        r_max=r_max,
-                        d_max=d_max,
-                        max_r_max=max_r_max,
-                        max_d_max=max_d_max
-                        )
-                    )
-    for n, ch in m.named_children():
-        replace_bn_with_brn(ch, n, momentum, r_d_max_inc_step, r_max, d_max,
-                            max_r_max, max_d_max)
+    for child_name, child in m.named_children():
+        if isinstance(child, torch.nn.BatchNorm2d):
+            setattr(m, child_name, BatchRenorm2D(
+                child.num_features,
+                gamma=child.weight,
+                beta=child.bias,
+                running_mean=child.running_mean,
+                running_var=child.running_var,
+                eps=child.eps,
+                momentum=momentum,
+                r_d_max_inc_step=r_d_max_inc_step,
+                r_max=r_max,
+                d_max=d_max,
+                max_r_max=max_r_max,
+                max_d_max=max_d_max
+            ))
+        else:
+            replace_bn_with_brn(child, child_name, momentum, r_d_max_inc_step, r_max, d_max,
+                                max_r_max, max_d_max)
+
 
 def change_brn_pars(
         m, name="", momentum=0.1, r_d_max_inc_step=0.0001, r_max=1.0,
         d_max=0.0):
-    for attr_str in dir(m):
-        target_attr = getattr(m, attr_str)
-        if type(target_attr) == BatchRenormalization2D:
-            target_attr.momentum = torch.tensor((momentum), requires_grad=False)
+    for target_name, target_attr in m.named_children():
+        if isinstance(target_attr, BatchRenorm2D):
+            target_attr.momentum = torch.tensor(momentum, requires_grad=False)
             target_attr.r_max = torch.tensor(r_max, requires_grad=False)
             target_attr.d_max = torch.tensor(d_max, requires_grad=False)
             target_attr.r_d_max_inc_step = r_d_max_inc_step
 
-    for n, ch in m.named_children():
-        change_brn_pars(ch, n, momentum, r_d_max_inc_step, r_max, d_max)
+        else:
+            change_brn_pars(target_attr, target_name, momentum, r_d_max_inc_step, r_max, d_max)
+
 
 def consolidate_weights(model, cur_clas):
     """ Mean-shift for the target layer weights"""
 
     with torch.no_grad():
-        # print(model.classifier[0].weight.size())
         globavg = np.average(model.output.weight.detach()
                              .cpu().numpy()[cur_clas])
-        # print("GlobalAvg: {} ".format(globavg))
         for c in cur_clas:
             w = model.output.weight.detach().cpu().numpy()[c]
 
             if c in cur_clas:
                 new_w = w - globavg
-                # if len(cur_clas) == 10:
-                #     print("This is first batch!")
-                #     new_w *= 4
                 if c in model.saved_weights.keys():
                     wpast_j = np.sqrt(model.past_j[c] / model.cur_j[c])
-                    # wpast_j = model.past_j[c] / model.cur_j[c]
                     model.saved_weights[c] = (model.saved_weights[c] * wpast_j
                      + new_w) / (wpast_j + 1)
                 else:
                     model.saved_weights[c] = new_w
 
-            # debug
-            # print(
-            #     "C: " + str(c) + "  -  Avg W: " + str(np.average(w)) +
-            #     " Std W: " + str(np.std(w)) + " Max W: " + str(np.max(w))
-            # )
 
 def set_consolidate_weights(model):
     """ set trained weights """
@@ -347,14 +333,12 @@ def reset_weights(model, cur_clas):
 
     with torch.no_grad():
         model.output.weight.fill_(0.0)
-        # model.output.weight.copy_(
-        #     torch.zeros(model.output.weight.size())
-        # )
         for c, w in model.saved_weights.items():
             if c in cur_clas:
                 model.output.weight[c].copy_(
                     torch.from_numpy(model.saved_weights[c])
                 )
+
 
 def examples_per_class(train_y):
     count = {i:0 for i in range(50)}
@@ -363,32 +347,48 @@ def examples_per_class(train_y):
 
     return count
 
+
 def set_brn_to_train(m, name=""):
-        for attr_str in dir(m):
-            target_attr = getattr(m, attr_str)
-            if type(target_attr) == BatchRenormalization2D:
-                target_attr.train()
-                # print("setting to train..")
-        for n, ch in m.named_children():
-            set_brn_to_train(ch, n)
+    for target_name, target_attr in m.named_children():
+        if isinstance(target_attr, BatchRenorm2D):
+            target_attr.train()
+        else:
+            set_brn_to_train(target_attr, target_name)
+
 
 def set_brn_to_eval(m, name=""):
-    for attr_str in dir(m):
-        target_attr = getattr(m, attr_str)
-        if type(target_attr) == BatchRenormalization2D:
+    for target_name, target_attr in m.named_children():
+        if isinstance(target_attr, BatchRenorm2D):
             target_attr.eval()
-            # print("setting to train..")
-    for n, ch in m.named_children():
-        set_brn_to_train(ch, n)
+        else:
+            set_brn_to_eval(target_attr, target_name)
 
-def freeze_up_to(model, freeze_below_layer):
+
+def set_bn_to(m, name="", phase="train"):
+    for target_name, target_attr in m.named_children():
+        if isinstance(target_attr, torch.nn.BatchNorm2d):
+            if phase == "train":
+                target_attr.train()
+            else:
+                target_attr.eval()
+        else:
+            set_bn_to(target_attr, target_name, phase)
+
+
+def freeze_up_to(model, freeze_below_layer, only_conv=False):
     for name, param in model.named_parameters():
         # tells whether we want to use gradients for a given parameter
-        if "bn" not in name:
+        if only_conv:
+            if "conv" in name:
+                param.requires_grad = False
+                print("Freezing parameter " + name)
+        else:
             param.requires_grad = False
             print("Freezing parameter " + name)
+
         if name == freeze_below_layer:
             break
+
 
 def create_syn_data(model):
     size = 0
@@ -445,7 +445,8 @@ def extract_grad(model, target):
 
 
 def init_batch(net, ewcData, synData):
-    extract_weights(net, ewcData[0])  # Keep initial weights
+    # Keep initial weights
+    extract_weights(net, ewcData[0])
     synData['trajectory'] = 0
 
 
@@ -470,19 +471,17 @@ def update_ewc_data(net, ewcData, synData, clip_to, c=0.0015):
 
     ewcData[1] = torch.empty_like(synData['cum_trajectory'])\
         .copy_(-synData['cum_trajectory'])
-    # change sign here because the Ewc regularization
-    # in Caffe (theta - thetaold) is inverted w.r.t. syn equation [4]
-    # (thetaold - theta)
+
     ewcData[1] = torch.clamp(ewcData[1], max=clip_to)
     # (except CWR)
     ewcData[0] = synData['new_theta'].clone().detach()
+
 
 def compute_ewc_loss(model, ewcData, lambd=0):
 
     weights_vector = None
     for name, param in model.named_parameters():
         if "bn" not in name and "output" not in name:
-            # print(name, param.flatten())
             if weights_vector is None:
                 weights_vector = param.flatten()
             else:
