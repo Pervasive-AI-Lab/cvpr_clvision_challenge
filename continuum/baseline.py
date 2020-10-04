@@ -14,79 +14,6 @@ from continuum.datasets import Core50
 from continuum.tasks import split_train_val
 from torchvision.transforms.transforms import Normalize, ToTensor
 
-
-
-######################### UTIL FUNCTIONS ################################
-
-# Workaround until we add core50_train.csv to the data folder (I don't have permissions)
-# Borrowed from continuum source code
-def train_img_ids(csv_file="core50_train.csv"):
-    train_image_ids = set()
-    with open(csv_file, 'r') as f:
-        for line in f:
-            image_id = line.split(",")[0].split(".")[0]
-            train_image_ids.add(image_id)
-    return train_image_ids
-
-# Our directory structure is a little different, so overriding get_data
-class MyCore50(Core50):
-
-    def get_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Generate the CORe50 data.
-
-        CORe50, in one of its many iterations, is made of 50 objects, each present
-        in 10 different domains (in-door, street, garden, etc.).
-
-        In class incremental (NC) setting, those domains won't matter.
-
-        In instance incremental (NI) setting, the domains come one after the other,
-        but all classes are present since the first task. Seven domains are allocated
-        for the train set, while 3 domains are allocated for the test set.
-
-        In the case of the test set, all domains have the "dummy" label of 0. The
-        authors designed this dataset with a fixed test dataset in mind.
-        """
-        x, y, t = [], [], []
-
-        domain_counter = 0
-        for domain_id in range(10):
-            # We walk through the 10 available domains.
-            domain_folder = os.path.join(self.data_path, f"s{domain_id + 1}")
-
-            has_images = False
-            for object_id in range(50):
-                # We walk through the 50 available object categories.
-                object_folder = os.path.join(domain_folder, f"o{object_id + 1}")
-
-                for path in os.listdir(object_folder):
-                    image_id = path.split(".")[0]
-
-                    if (
-                        (self.train and image_id not in self.train_image_ids) or  # type: ignore
-                        (not self.train and image_id in self.train_image_ids)  # type: ignore
-                    ):
-                        continue
-
-                    x.append(os.path.join(object_folder, path))
-                    y.append(object_id)
-                    if self.train:  # We add a new domain id for the train set.
-                        t.append(domain_counter)
-                    else:  # Test set is fixed, therefore we artificially give a unique domain.
-                        t.append(0)
-
-                    has_images = True
-            if has_images:
-                domain_counter += 1
-
-        x = np.array(x)
-        y = np.array(y)
-        t = np.array(t)
-
-        return x, y, t
-
-
-####################### CONTINUOUS LEARNING IMPLEMENTATION ##############################
-
 # Load the core50 data
 core50 = Core50("core50/data/", train=True, download=False)
 
@@ -138,6 +65,7 @@ for task_id, train_taskset in enumerate(scenario):
 
         running_loss = 0.0
         for i, (x, y, t) in enumerate(train_loader):
+            
             # Outputs batches of data, one scenario at a time
             x, y = x.cuda(), y.cuda()
             outputs = classifier(x)
