@@ -12,6 +12,8 @@ import torchvision.models as models
 from continuum import ClassIncremental
 from continuum.datasets import Core50
 from continuum.tasks import split_train_val
+from torchvision.transforms.transforms import Normalize, ToTensor
+
 
 
 ######################### UTIL FUNCTIONS ################################
@@ -86,13 +88,15 @@ class MyCore50(Core50):
 ####################### CONTINUOUS LEARNING IMPLEMENTATION ##############################
 
 # Load the core50 data
-core50 = MyCore50("core50/data/", train=True, download=False)
+core50 = Core50("core50/data/", train=True, download=False)
+
 
 # A new classes scenario
 scenario = ClassIncremental(
     core50,
     increment=5,
-    initial_increment=10
+    initial_increment=10,
+    transformations=[ ToTensor(), Normalize([0.485, 0.456, 0.406],[0.229, 0.224, 0.225])]
 )
 
 print(f"Number of classes: {scenario.nb_classes}.")
