@@ -33,6 +33,7 @@ is mandatory and should respect the frequency requested for each metric:
 ### Project Structure
 This repository is structured as follows:
 
+- [`finalists/`](finalists): **Directory containing finalists submissions!**
 - [`core50/`](core50): Root directory for the CORe50  benchmark, the main dataset of the challenge.
 - [`utils/`](core): Directory containing a few utility methods.
 - [`cl_ext_mem/`](cl_ext_mem): It will be generated after the repository setup (you need to store here eventual 
@@ -89,6 +90,21 @@ You can now customize the code in the main batches/tasks loop:
         # TODO: CL magic here
         # Remember to add all the metadata requested for the metrics as shown in the sample script.
 ```
+
+### Running finalists submissions
+
+Solutions submitted by finalists can be found in the [`finalists`](finalists) directory. The scripts found in [`eval_scripts`](finalists/eval_scripts) can help in replicating the evaluation process. Those scripts are for Linux systems only. Set the proper permissions and executable flags before running them. Also, please make sure that [Docker](https://www.docker.com/) and [Nvidia Docker](https://github.com/NVIDIA/nvidia-docker) are configured properly.
+
+The following steps should replicate the finalists results:
+
+1) Download the dataset in a separate directory using the [`fetch_data_and_setup.sh`](fetch_data_and_setup.sh) utility.
+2) (Optional) Prepare a separate directory containing the submissions you want to run (or use the whole [`finalists`](finalists) directory).
+3) Execute the [`run_submissions_recursive.sh`](finalists/eval_scripts/run_submissions_recursive.sh) script. The script will try to drop the filesystem cache between each submission. Because of that, superuser permissions are required. The script needs the following arguments:
+   1) The path to the submissions directory
+   2) The path to the CORe50 data
+   3) (Optional) The ID of the GPU to use
+
+Some submissions take many hours to complete! Also, consider that many huge docker images will be created, make sure you have sufficient disk space.
 
 ### Troubleshooting & Tips
 
