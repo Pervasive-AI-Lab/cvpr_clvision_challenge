@@ -1,0 +1,29 @@
+parameters:
+  scenario: ni
+  sub_dir: ni
+  cls: dense_freeze_till3
+  method: task_mem
+  n_classes: 50
+  #Augmentation
+  aug: True
+  aug_type: center_224
+  #replay
+  replay_examples: 10000
+  replay_used: 10000
+  replay_epochs: 2
+  #review
+  review_lr_factor: 0.5
+  review_size: 20000
+  review_epoch: 1
+  #train
+  batch_size: 32
+  epochs: 1
+  optimizer: SGD
+  nesterov: True
+  momentum: 0
+  weight_decay: 0.01
+  lr: 0.007
+  #misc
+  verbose: False
+  preload_data: False
+  use_cuda: True
