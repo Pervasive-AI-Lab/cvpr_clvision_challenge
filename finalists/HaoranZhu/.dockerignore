@@ -1,0 +1,13 @@
+cl_ext_mem/
+submissions/
+core50/data/
+Dockerfile
+LICENSE
+README.md
+.gitignore
+**/.git/
+**/.DS_Store
+*.pyc
+*.pyo
+*.pyd
+__pycache__

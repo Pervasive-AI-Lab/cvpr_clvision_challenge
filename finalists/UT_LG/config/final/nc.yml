@@ -1,0 +1,22 @@
+parameters:
+  scenario: multi-task-nc
+  sub_dir: multi-task-nc
+  cls: dense_freeze_till3
+  method: multi_models
+  n_classes: 50
+  #Augmentation
+  aug: True
+  aug_type: center_128
+  #train
+  batch_size: 32
+  epochs: 2
+  optimizer: SGD
+  lr: 0.001
+  nesterov: True
+  momentum: 0.9
+  weight_decay: 0.0001
+  #misc
+  verbose: False
+  preload_data: False
+  use_cuda: True
+
